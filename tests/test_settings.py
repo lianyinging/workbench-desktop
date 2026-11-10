@@ -1,0 +1,290 @@
+"""Tests for the model API-key settings path (Tauri desktop Phase 2).
+
+A Tauri-launched sidecar doesn't inherit the shell env, so the key may live only in the
+SecretStore. These cover: the env→store resolver, the status shape (never leaks the key),
+and the REST round-trip. No network, no model calls.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from coworker.providers import resolve_api_key
+from coworker.secrets import SecretStore
+
+
+def test_resolve_api_key_prefers_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env-123")
+    secrets = SecretStore(path=tmp_path / "secrets.json")
+    secrets.put("provider:openai", {"type": "api_key", "api_key": "sk-store-999"})
+    assert resolve_api_key(secrets) == "sk-env-123"
+
+
+def test_resolve_api_key_falls_back_to_store(monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    secrets = SecretStore(path=tmp_path / "secrets.json")
+    assert resolve_api_key(secrets) is None
+    secrets.put("provider:openai", {"type": "api_key", "api_key": "sk-store-999"})
+    assert resolve_api_key(secrets) == "sk-store-999"
+
+
+def test_settings_rest_roundtrip(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from coworker.server.app import create_app
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "state"))
+    manager = SessionManager(data_dir=tmp_path / "data")
+    client = TestClient(create_app(manager))
+
+    before = client.get("/v1/settings").json()
+    assert (
+        before["has_key"] is False
+        and before["source"] is None
+        and before["provider"] == "openai"
+    )
+    assert before["onboarded"] is False and before["model"] in before["models"]
+
+    set_resp = client.post(
+        "/v1/settings/model-key", json={"api_key": "sk-secret-xyz"}
+    ).json()
+    assert (
+        set_resp["ok"] is True
+        and set_resp["has_key"] is True
+        and set_resp["source"] == "store"
+    )
+
+    after = client.get("/v1/settings").json()
+    assert after["has_key"] is True
+    # the key value is never returned by either endpoint
+    assert "sk-secret-xyz" not in str(set_resp) and "api_key" not in after
+
+    # empty key is rejected
+    assert (
+        client.post("/v1/settings/model-key", json={"api_key": "  "}).json()["ok"]
+        is False
+    )
+
+
+def test_default_model_and_onboarding_persist(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from coworker.server.app import create_app
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "state"))
+    data_dir = tmp_path / "data"
+    client = TestClient(create_app(SessionManager(data_dir=data_dir)))
+
+    # set a default model + mark onboarded
+    assert (
+        client.post("/v1/settings/default-model", json={"model": "gpt-4o"}).json()[
+            "model"
+        ]
+        == "gpt-4o"
+    )
+    assert (
+        client.post("/v1/settings/onboarded", json={"value": True}).json()["onboarded"]
+        is True
+    )
+    assert (
+        client.post("/v1/settings/default-model", json={"model": " "}).json()["ok"]
+        is False
+    )
+
+    # a fresh manager over the same data dir restores both from prefs.json
+    reborn = SessionManager(data_dir=data_dir)
+    assert reborn.model == "gpt-4o"
+    s = reborn.get_settings()
+    assert s["onboarded"] is True and s["model"] == "gpt-4o"
+
+
+def test_nav_layout_setting_roundtrips(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from coworker.server.app import create_app
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "state"))
+    data_dir = tmp_path / "data"
+    client = TestClient(create_app(SessionManager(data_dir=data_dir)))
+
+    # defaults to "flat"
+    assert client.get("/v1/settings").json()["nav_layout"] == "flat"
+
+    resp = client.post("/v1/settings/nav-layout", json={"nav_layout": "grouped"}).json()
+    assert resp == {"ok": True, "nav_layout": "grouped"}
+    assert client.get("/v1/settings").json()["nav_layout"] == "grouped"
+
+    # unknown value falls back to flat; persists across a restart
+    assert (
+        client.post("/v1/settings/nav-layout", json={"nav_layout": "bogus"}).json()[
+            "nav_layout"
+        ]
+        == "flat"
+    )
+    client.post("/v1/settings/nav-layout", json={"nav_layout": "grouped"})
+    reborn = SessionManager(data_dir=data_dir)
+    assert reborn.get_settings()["nav_layout"] == "grouped"
+
+
+def test_scratch_base_setting_persists_and_drives_provisioning(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from coworker.server.app import create_app
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "state"))
+    data_dir = tmp_path / "data"
+    client = TestClient(create_app(SessionManager(data_dir=data_dir)))
+
+    # defaults to ~/OpenWorker
+    assert client.get("/v1/settings").json()["scratch_base"] == "~/OpenWorker"
+
+    base = tmp_path / "my coworker files"
+    resp = client.post("/v1/settings/scratch-base", json={"path": str(base)}).json()
+    assert resp["ok"] is True and resp["scratch_base"] == str(base)
+    assert base.is_dir()  # created on set
+    assert (
+        client.post("/v1/settings/scratch-base", json={"path": " "}).json()["ok"]
+        is False
+    )
+
+    # persists across a restart and actually drives where scratch dirs are provisioned
+    reborn = SessionManager(data_dir=data_dir)
+    assert reborn.get_settings()["scratch_base"] == str(base)
+    scratch = reborn._provision_scratch("sess-xyz")
+    assert Path(scratch) == (base / "sess-xyz").resolve() and Path(scratch).is_dir()
+
+
+def test_ollama_models_gated_on_liveness(tmp_path, monkeypatch):
+    """`ollama:*` entries show only while a local Ollama answers — keyless must not mean
+    always-present (a stray ollama:<junk> pref would otherwise render forever)."""
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "state"))
+    manager = SessionManager(data_dir=tmp_path / "data")
+    manager.add_model("ollama:llama3.3")
+
+    monkeypatch.setattr(SessionManager, "_ollama_alive", lambda self: False)
+    assert "ollama:llama3.3" not in manager.get_settings()["models"]
+
+    monkeypatch.setattr(SessionManager, "_ollama_models", lambda self: [])
+    monkeypatch.setattr(SessionManager, "_ollama_alive", lambda self: True)
+    assert "ollama:llama3.3" in manager.get_settings()["models"]
+
+
+def _ollama_manager(tmp_path, monkeypatch, pulled=("qwen2.5:7b-instruct",)):
+    """A fresh manager (no keys, no saved Ollama profile) whose local Ollama answers
+    `/api/tags` with `pulled` — none of them the recommended model."""
+    import httpx
+
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("COWORKER_STATE_DIR", str(tmp_path / "state"))
+
+    from coworker.providers import ollama_facts
+
+    class _Tags:
+        status_code = 200
+
+        def json(self):
+            return {"models": [{"name": n} for n in pulled]}
+
+    class _Show:
+        status_code = 200
+
+        def json(self):
+            return {"capabilities": ["completion", "tools"]}
+
+    monkeypatch.setattr(httpx, "get", lambda url, timeout=None: _Tags())
+    monkeypatch.setattr(httpx, "post", lambda url, json=None, timeout=None: _Show())
+    ollama_facts.forget_all()  # answers are cached per server; never across tests
+    return SessionManager(data_dir=tmp_path / "data")
+
+
+def test_ollama_models_without_saved_profile(tmp_path, monkeypatch):
+    """Keyless Ollama needs no saved form: pulled models list from the localhost default."""
+    manager = _ollama_manager(tmp_path, monkeypatch)
+    assert manager.secrets.get("provider:ollama") is None
+    assert manager._ollama_models() == ["ollama:qwen2.5:7b-instruct"]
+
+
+def test_pulled_ollama_models_reach_the_picker(tmp_path, monkeypatch):
+    manager = _ollama_manager(tmp_path, monkeypatch)
+    assert "ollama:qwen2.5:7b-instruct" in manager.get_settings()["models"]
+
+
+def test_ollama_default_ready_tracks_liveness(tmp_path, monkeypatch):
+    from coworker.server.manager import SessionManager
+
+    manager = _ollama_manager(tmp_path, monkeypatch)
+    manager.set_default_model("ollama:qwen2.5:7b-instruct")
+    assert manager.get_settings()["model_ready"] is True
+    monkeypatch.setattr(SessionManager, "_ollama_alive", lambda self: False)
+    assert manager.get_settings()["model_ready"] is False
+
+
+def test_ollama_adopts_first_pulled_model(tmp_path, monkeypatch):
+    """Saving Ollama with only a non-recommended model pulled still yields a runnable default."""
+    manager = _ollama_manager(tmp_path, monkeypatch)
+    assert manager.get_settings()["model_ready"] is False
+    assert manager.adopt_provider_default("ollama") == "ollama:qwen2.5:7b-instruct"
+    settings = manager.get_settings()
+    assert settings["model"] == "ollama:qwen2.5:7b-instruct"
+    assert settings["model_ready"] is True
+
+
+def test_ollama_adoption_never_steals_a_working_default(tmp_path, monkeypatch):
+    manager = _ollama_manager(tmp_path, monkeypatch)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env-123")
+    before = manager.get_settings()["model"]
+    assert manager.adopt_provider_default("ollama") is None
+    assert manager.get_settings()["model"] == before
+
+
+def test_env_key_provider_reports_its_source_and_refuses_removal(tmp_path, monkeypatch):
+    """#742: a key that comes from the provider's environment variable is not ours to
+    remove. The provider row says where the key comes from, and remove_provider answers
+    truthfully instead of reporting a removal that changes nothing."""
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-from-env")
+    mgr = SessionManager(data_dir=tmp_path)
+
+    row = {p["name"]: p for p in mgr.get_providers()}["anthropic"]
+    assert row["configured"] is True
+    assert row["key_source"] == "env" and row["env_key"] == "ANTHROPIC_API_KEY"
+
+    res = mgr.remove_provider("anthropic")
+    assert res["ok"] is False and res["env_key"] == "ANTHROPIC_API_KEY"
+    assert "ANTHROPIC_API_KEY" in res["error"]
+    assert {p["name"]: p for p in mgr.get_providers()}["anthropic"]["configured"] is True
+
+    # A key saved in Settings wins over the variable and can be removed; the provider
+    # then stays configured by the variable, and the answer says so.
+    mgr.set_provider("anthropic", {"api_key": "sk-ant-stored"})
+    row = {p["name"]: p for p in mgr.get_providers()}["anthropic"]
+    assert row["key_source"] == "store" and row["env_key"] == "ANTHROPIC_API_KEY"
+    res = mgr.remove_provider("anthropic")
+    assert res == {"ok": True, "provider": "anthropic", "env_key": "ANTHROPIC_API_KEY", "configured": True}
+    row = {p["name"]: p for p in mgr.get_providers()}["anthropic"]
+    assert row["key_source"] == "env" and row["configured"] is True
+
+
+def test_stored_key_provider_removes_cleanly(tmp_path, monkeypatch):
+    from coworker.server.manager import SessionManager
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    mgr = SessionManager(data_dir=tmp_path)
+    assert {p["name"]: p for p in mgr.get_providers()}["anthropic"]["key_source"] is None
+    mgr.set_provider("anthropic", {"api_key": "sk-ant-stored"})
+    row = {p["name"]: p for p in mgr.get_providers()}["anthropic"]
+    assert row["key_source"] == "store" and row["env_key"] is None
+    assert mgr.remove_provider("anthropic") == {"ok": True, "provider": "anthropic"}
+    row = {p["name"]: p for p in mgr.get_providers()}["anthropic"]
+    assert row["configured"] is False and row["key_source"] is None

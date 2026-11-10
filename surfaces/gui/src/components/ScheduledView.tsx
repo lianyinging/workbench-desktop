@@ -1,0 +1,704 @@
+import { useEffect, useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import { IconSearch } from "@tabler/icons-react";
+import {
+  createAutomation,
+  deleteAutomation,
+  getAutomation,
+  getAutomations,
+  type FailedInARow,
+  markAutomationSeen,
+  announceAutomationsChanged,
+  updateAutomation,
+  type Automation,
+  type AutomationRun,
+} from "../api";
+import { beginWindowDrag, WINDOW_DRAG_CLASS } from "../windowDrag";
+import { Icon } from "./Icon";
+import { AutomationQuickstart } from "./AutomationQuickstart";
+import { formatTokens } from "../usage";
+import { formatDuration } from "./StepsPanel";
+import { healthTone } from "../obs3";
+
+// Shared utility strings (the §28 page shell — mirrors IntegrationsView's constants).
+const CARD = "rounded-xl2 border border-line bg-panel";
+
+// Parse a simple "min hour * * dow" cron back into the time + frequency the editor uses.
+// Falls back to 09:00 / daily for anything it doesn't recognize (e.g. agent-written crons).
+function fromCron(cron?: string | null): { time: string; freq: string } {
+  const parts = (cron || "").trim().split(/\s+/);
+  if (parts.length !== 5) return { time: "09:00", freq: "daily" };
+  const [m, h, , , dow] = parts;
+  const hh = String(Math.min(23, Math.max(0, parseInt(h, 10) || 9))).padStart(2, "0");
+  const mm = String(Math.min(59, Math.max(0, parseInt(m, 10) || 0))).padStart(2, "0");
+  const freq = dow === "1-5" ? "weekdays" : dow === "0,6" || dow === "6,0" ? "weekends" : "daily";
+  return { time: `${hh}:${mm}`, freq };
+}
+
+const fmt = (t: number | null) =>
+  t ? new Date(t * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
+
+// Map a simple time-of-day + frequency selection to a 5-field cron string.
+function toCron(time: string, freq: string): string {
+  const [h, m] = (time || "09:00").split(":").map((x) => parseInt(x, 10) || 0);
+  const dow = freq === "weekdays" ? "1-5" : freq === "weekends" ? "0,6" : "*";
+  return `${m} ${h} * * ${dow}`;
+}
+
+interface Props {
+  // `task` gives the opened run session its context (banner + "Back to runs"; owner ask 2026-07-04).
+  onOpenRun: (
+    sessionId: string,
+    workspace: string,
+    agent: string,
+    task?: { id: string; title: string },
+  ) => void;
+  onRunNow: (taskId: string, title?: string) => void;
+  // Open directly on a task's detail (set by the run banner's "Back to runs").
+  initialOpenId?: string | null;
+  // OB-18 (Phase 3): a run's Steps, at its first recorded turn.
+  onOpenRunSteps?: (sessionId: string, turnId: string, workspace: string, agent: string, task?: { id: string; title: string }) => void;
+  /** Sidebar collapsed — show inline reveal beside the title (same chrome as industry apps). */
+  navCollapsed?: boolean;
+  onToggleNav?: () => void;
+}
+
+export function ScheduledView({
+  onOpenRun,
+  onRunNow,
+  initialOpenId,
+  onOpenRunSteps,
+  navCollapsed = false,
+  onToggleNav,
+}: Props) {
+  const { t } = useTranslation();
+  const [tasks, setTasks] = useState<Automation[]>([]);
+  const [query, setQuery] = useState("");
+  const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  // The sidebar's Scheduled band can retarget an ALREADY-open Automations surface —
+  // initial state alone would ignore the change (UX-023).
+  useEffect(() => {
+    if (initialOpenId) setOpenId(initialOpenId);
+  }, [initialOpenId]);
+
+  const refresh = () => getAutomations().then(setTasks).catch(() => setTasks([]));
+  useEffect(() => {
+    refresh();
+    const h = setInterval(refresh, 5000);
+    return () => clearInterval(h);
+  }, []);
+
+  const q = query.trim().toLowerCase();
+  const visible = useMemo(() => {
+    if (!q) return tasks;
+    return tasks.filter((task) => {
+      const hay = [
+        task.title,
+        task.schedule,
+        task.instructions,
+        task.machine_name,
+        task.last_status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [tasks, q]);
+
+  // Create from a payload, refresh the list, and open the new task's detail. `permissions`
+  // rides through for quickstart recipes (§25 write grants).
+  const create = async (payload: {
+    title: string;
+    instructions: string;
+    cron?: string;
+    permissions?: { tool: string; target: string; access: "read" | "write" }[];
+  }) => {
+    setBusy(payload.title);
+    try {
+      const res = await createAutomation(payload);
+      announceAutomationsChanged(); // new entry shows in the sidebar band right away
+      await refresh();
+      if (res.ok && res.task) {
+        setShowForm(false);
+        setOpenId(res.task.id);
+      } else if (res.error) {
+        alert(res.error);
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (openId) {
+    return (
+      <TaskDetail
+        id={openId}
+        onBack={() => { setOpenId(null); refresh(); }}
+        onOpenRun={onOpenRun}
+        onRunNow={onRunNow}
+        onOpenRunSteps={onOpenRunSteps}
+        navCollapsed={navCollapsed}
+        onToggleNav={onToggleNav}
+      />
+    );
+  }
+
+  const empty = tasks.length === 0;
+  const chromeInner = navCollapsed ? "px-4 max-w-none" : "px-7 max-w-5xl";
+
+  return (
+    <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel" data-testid="automations">
+      <div
+        className={"automations-sticky shrink-0 bg-panel border-b border-line " + WINDOW_DRAG_CLASS}
+        onPointerDown={beginWindowDrag}
+      >
+        <div className={chromeInner}>
+          <div className="flex flex-wrap items-center gap-3 justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              {navCollapsed && onToggleNav && (
+                <>
+                  <button
+                    type="button"
+                    className="topbar-icon-btn shrink-0"
+                    data-testid="automations-nav-reveal"
+                    title={t("topbar.show_sidebar")}
+                    aria-label={t("topbar.show_sidebar_short")}
+                    onClick={onToggleNav}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Icon name="sidebar" size={18} />
+                  </button>
+                  <span className="topbar-cluster-sep text-faint select-none" aria-hidden="true">
+                    |
+                  </span>
+                </>
+              )}
+              <div
+                className={
+                  "inline-flex items-center gap-1.5 h-8 rounded-lg text-body font-semibold text-ink " +
+                  (navCollapsed ? "px-3" : "pl-0 pr-3")
+                }
+              >
+                <Icon name="clock" size={18} />
+                {t("automations.title")}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <label className="relative flex items-center">
+                <IconSearch size={16} stroke={1.7} className="absolute left-2.5 text-faint pointer-events-none" />
+                <input
+                  className="h-8 w-[220px] pl-8 pr-3 rounded-full border border-line bg-panel text-body text-ink placeholder:text-placeholder outline-none focus:border-lineStrong"
+                  placeholder={t("automations.search_placeholder")}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  data-testid="automations-search"
+                  onPointerDown={(e) => e.stopPropagation()}
+                />
+              </label>
+              <button
+                type="button"
+                className="h-8 inline-flex items-center gap-1.5 px-3 rounded-full border border-line bg-panel text-ui text-ink hover:bg-chromeHover shrink-0"
+                onClick={() => setShowForm((v) => !v)}
+                data-testid="automations-new"
+              >
+                {t("automations.new_btn")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto hairline-scroll">
+        <div className="max-w-5xl px-7 pt-4 pb-5">
+          <p className="text-ui text-muted mb-1">{t("automations.sub")}</p>
+          <div className="text-meta text-faint flex gap-1.5 mb-4">
+            <span aria-hidden>ⓘ</span>
+            <span>{t("automations.server_hint")}</span>
+          </div>
+
+          {showForm && (
+            <NewAutomationForm
+              busy={busy !== null}
+              onCancel={() => setShowForm(false)}
+              onCreate={create}
+            />
+          )}
+
+          {/* The quickstart (§29): ONE template system — role recipes + generic templates, each
+              card with §27 connector dots; picking one expands the configure card. */}
+          {(empty || showForm) && <AutomationQuickstart busy={busy !== null} onCreate={create} />}
+
+          {empty ? (
+            !showForm && (
+              <div className={CARD + " p-4 text-ui text-muted"}>
+                <Trans
+                  i18nKey="automations.empty_state"
+                  components={{ strong: <strong /> }}
+                />
+              </div>
+            )
+          ) : visible.length === 0 ? (
+            <div className={CARD + " p-4 text-ui text-muted text-center"}>
+              {t("automations.search_empty")}
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {visible.map((task) => (
+                <div
+                  className={
+                    CARD +
+                    " sched-card px-4 py-4 cursor-pointer hover:border-lineStrong hover:bg-chromeHover/40 transition-colors"
+                  }
+                  key={task.id}
+                  onClick={() => setOpenId(task.id)}
+                >
+                  <div className="flex items-center justify-between gap-2.5 mb-1">
+                    <span className="text-body font-semibold truncate">
+                      {task.title}
+                      {task.machine_name && (
+                        <span className="text-meta text-muted font-normal" data-testid="automation-machine">
+                          {" · "}{t("p3.runs.on_machine", { name: task.machine_name })}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      className="sched-card-del"
+                      title={t("automations.delete_title")}
+                      aria-label={t("automations.delete_aria", { title: task.title })}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await deleteAutomation(task.id);
+                        refresh();
+                      }}
+                    >
+                      <Icon name="trash" size={14} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-meta text-muted">
+                    <Icon name="clock" size={13} className="text-faint shrink-0" />
+                    {task.enabled ? task.schedule : t("automations.paused")} · {t("automations.next", { time: fmt(task.next_run) })} · {t("automations.run_count", { count: task.run_count })}
+                    {task.last_status ? ` · ${t("automations.last", { status: task.last_status })}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function NewAutomationForm({
+  busy,
+  onCancel,
+  onCreate,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onCreate: (p: { title: string; instructions: string; cron?: string }) => void;
+}) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [time, setTime] = useState("09:00");
+  const [freq, setFreq] = useState("daily");
+
+  const valid = title.trim() && instructions.trim();
+
+  return (
+    <div className={CARD + " tmpl-form p-4 mb-4"}>
+      <div className="text-label text-faint mb-2.5">
+        {t("automations.new_automation")}
+      </div>
+      <input
+        className="tmpl-input"
+        placeholder={t("automations.title_placeholder")}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <textarea
+        className="tmpl-input tmpl-textarea"
+        placeholder={t("automations.instructions_placeholder")}
+        value={instructions}
+        onChange={(e) => setInstructions(e.target.value)}
+      />
+      <div className="tmpl-sched">
+        <label className="tmpl-field">
+          <span>{t("automations.at")}</span>
+          <input
+            type="time"
+            className="tmpl-input tmpl-time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+        </label>
+        <label className="tmpl-field">
+          <span>{t("automations.repeat")}</span>
+          <select
+            className="tmpl-input tmpl-select"
+            value={freq}
+            onChange={(e) => setFreq(e.target.value)}
+          >
+            <option value="daily">{t("automations.freq_daily")}</option>
+            <option value="weekdays">{t("automations.freq_weekdays")}</option>
+            <option value="weekends">{t("automations.freq_weekends")}</option>
+          </select>
+        </label>
+      </div>
+      <div className="tmpl-form-actions">
+        <button
+          className="btn-primary sm"
+          disabled={!valid || busy}
+          onClick={() =>
+            onCreate({
+              title: title.trim(),
+              instructions: instructions.trim(),
+              cron: toCron(time, freq),
+            })
+          }
+        >
+          {busy ? t("automations.creating") : t("automations.create_btn")}
+        </button>
+        <button className="link" onClick={onCancel}>{t("automations.cancel")}</button>
+      </div>
+    </div>
+  );
+}
+
+function TaskDetail({
+  id,
+  onBack,
+  onOpenRun,
+  onRunNow,
+  onOpenRunSteps,
+  navCollapsed = false,
+  onToggleNav,
+}: {
+  id: string;
+  onBack: () => void;
+  onOpenRunSteps?: Props["onOpenRunSteps"];
+  onOpenRun: (
+    sessionId: string,
+    workspace: string,
+    agent: string,
+    task?: { id: string; title: string },
+  ) => void;
+  onRunNow: (taskId: string, title?: string) => void;
+  navCollapsed?: boolean;
+  onToggleNav?: () => void;
+}) {
+  const { t: tt } = useTranslation();
+  const [task, setTask] = useState<Automation | null>(null);
+  const [runs, setRuns] = useState<AutomationRun[]>([]);
+  const [failedRow, setFailedRow] = useState<FailedInARow | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [time, setTime] = useState("09:00");
+  const [freq, setFreq] = useState("daily");
+  const [saving, setSaving] = useState(false);
+
+  // The seen mark AS OF opening — the "new" pills compare against this frozen value
+  // while mark-seen advances the stored one (badge clears; highlights survive).
+  const [seenMark, setSeenMark] = useState<number | null>(null);
+
+  const refresh = () =>
+    getAutomation(id)
+      .then((d) => {
+        if (!d.task) {
+          // Deleted (or a stale reopen target): "Loading…" forever is a trap —
+          // fall back to the overview (owner-hit 2026-07-20).
+          onBack();
+          return;
+        }
+        setTask(d.task);
+        setRuns(d.runs || []);
+        setFailedRow(d.failed_in_a_row ?? null);
+        setSeenMark((cur) => (cur === null ? d.task?.seen_runs_at ?? 0 : cur));
+      })
+      .catch(() => {});
+  useEffect(() => {
+    setSeenMark(null);
+    refresh();
+    // Opening the detail IS reading it: advance the seen mark and nudge the
+    // sidebar so the badge clears immediately (UX-023).
+    markAutomationSeen(id)
+      .then(() => announceAutomationsChanged())
+      .catch(() => {});
+  }, [id]);
+
+  const chromeInner = navCollapsed ? "px-4 max-w-none" : "px-7 max-w-5xl";
+
+  const stickyChrome = (center: React.ReactNode, trailing?: React.ReactNode) => (
+    <div
+      className={"automations-sticky shrink-0 bg-panel border-b border-line " + WINDOW_DRAG_CLASS}
+      onPointerDown={beginWindowDrag}
+    >
+      <div className={chromeInner}>
+        <div className="flex flex-wrap items-center gap-3 justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            {navCollapsed && onToggleNav && (
+              <>
+                <button
+                  type="button"
+                  className="topbar-icon-btn shrink-0"
+                  data-testid="automations-nav-reveal"
+                  title={tt("topbar.show_sidebar")}
+                  aria-label={tt("topbar.show_sidebar_short")}
+                  onClick={onToggleNav}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <Icon name="sidebar" size={18} />
+                </button>
+                <span className="topbar-cluster-sep text-faint select-none" aria-hidden="true">
+                  |
+                </span>
+              </>
+            )}
+            {center}
+          </div>
+          {trailing}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!task)
+    return (
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel" data-testid="automations-detail">
+        {stickyChrome(
+          <button
+            type="button"
+            className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg text-ui text-ink hover:bg-chromeHover"
+            onClick={onBack}
+          >
+            {tt("automations.back_to_automations")}
+          </button>,
+        )}
+        <div className="flex-1 min-h-0 overflow-y-auto hairline-scroll">
+          <div className="max-w-5xl px-7 pt-4 pb-5 text-ui text-muted">{tt("automations.loading")}</div>
+        </div>
+      </main>
+    );
+
+  const startEdit = () => {
+    setTitle(task.title);
+    setInstructions(task.instructions);
+    const { time: t, freq: f } = fromCron(task.schedule_raw?.cron);
+    setTime(t);
+    setFreq(f);
+    setEditing(true);
+  };
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      await updateAutomation(id, {
+        title: title.trim(),
+        instructions: instructions.trim(),
+        cron: toCron(time, freq),
+      });
+      await refresh();
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const toggle = async () => {
+    await updateAutomation(id, { enabled: !task.enabled });
+    refresh();
+  };
+  const remove = async () => {
+    await deleteAutomation(id);
+    announceAutomationsChanged(); // the sidebar band must not wait out its poll
+    onBack();
+  };
+
+  return (
+    <main className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel" data-testid="automations-detail">
+      {stickyChrome(
+        <button
+          type="button"
+          className="h-8 inline-flex items-center gap-1.5 px-2.5 rounded-lg text-ui text-ink hover:bg-chromeHover min-w-0"
+          onClick={onBack}
+        >
+          <span className="truncate">{tt("automations.back_to_automations")}</span>
+        </button>,
+        <div className="sched-actions shrink-0">
+          {editing ? (
+            <>
+              <button className="btn-primary sm" disabled={saving || !title.trim() || !instructions.trim()} onClick={saveEdit}>
+                {saving ? tt("automations.saving") : tt("automations.save")}
+              </button>
+              <button className="link" onClick={() => setEditing(false)}>{tt("automations.cancel")}</button>
+            </>
+          ) : (
+            <>
+              <button className="btn-primary sm" onClick={() => onRunNow(id, task.title)}>
+                {tt("automations.run_now")}
+              </button>
+              <button className="btn sm" onClick={startEdit}>{tt("automations.edit")}</button>
+              <button className="btn sm danger-btn" onClick={remove}>
+                <Icon name="trash" size={14} /> {tt("automations.delete")}
+              </button>
+            </>
+          )}
+        </div>,
+      )}
+
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto hairline-scroll">
+        <div className="max-w-5xl px-7 pt-4 pb-5">
+          <div className="sched-detail">
+            <div className="sched-detail-head">
+              {editing ? (
+                <input
+                  className="tmpl-input sched-edit-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={tt("automations.title_label")}
+                />
+              ) : (
+                <h2 className="text-title font-semibold tracking-tight">{task.title}</h2>
+              )}
+            </div>
+
+            {editing ? (
+              <div className="tmpl-sched sched-edit-sched">
+                <label className="tmpl-field">
+                  <span>{tt("automations.at")}</span>
+                  <input type="time" className="tmpl-input tmpl-time" value={time} onChange={(e) => setTime(e.target.value)} />
+                </label>
+                <label className="tmpl-field">
+                  <span>{tt("automations.repeat")}</span>
+                  <select className="tmpl-input tmpl-select" value={freq} onChange={(e) => setFreq(e.target.value)}>
+                    <option value="daily">{tt("automations.freq_daily")}</option>
+                    <option value="weekdays">{tt("automations.freq_weekdays")}</option>
+                    <option value="weekends">{tt("automations.freq_weekends")}</option>
+                  </select>
+                </label>
+              </div>
+            ) : (
+              <div className="conn-meta">
+                <label className="switch">
+                  <input type="checkbox" checked={task.enabled} onChange={toggle} />
+                  <span className="slider" />
+                </label>{" "}
+                {task.enabled ? tt("automations.active_next", { time: fmt(task.next_run) }) : tt("automations.paused")} · {task.schedule}
+              </div>
+            )}
+
+            <div className="sa-sub">{tt("automations.instructions_label")}</div>
+            {editing ? (
+              <textarea
+                className="tmpl-input tmpl-textarea sched-edit-instr"
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+              />
+            ) : (
+              <div className="sched-instructions">{task.instructions}</div>
+            )}
+
+            {(task.always_allowed || []).length > 0 && (
+              <>
+                <div className="sa-sub">{tt("automations.allowed_without_asking")}</div>
+                <div className="dim" style={{ marginBottom: 8, fontSize: 12.5 }}>
+                  {tt("automations.allowed_desc")}
+                </div>
+                <div className="sched-grants" data-testid="task-grants">
+                  {(task.always_allowed || []).map((rule) => (
+                    <div className="sched-grant" key={rule.entry}>
+                      <span className="sched-grant-rule">
+                        <code>{rule.tool}</code>
+                        {rule.target && <span className="sched-grant-target"> → {rule.target}</span>}
+                      </span>
+                      <button
+                        className="link"
+                        title={tt("automations.revoke_title")}
+                        onClick={async () => {
+                          await updateAutomation(id, { revoke: rule.entry });
+                          refresh();
+                        }}
+                      >
+                        {tt("automations.revoke")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div className="sa-sub">{tt("automations.runs_label")}</div>
+            <div className="dim" style={{ marginBottom: 8, fontSize: 12.5 }}>
+              {tt("automations.runs_desc")}
+            </div>
+            {failedRow && (
+              <div className="p3-callout err" data-testid="runs-failed-banner">
+                <b>{tt("p3.runs.failed_in_a_row", { count: failedRow.count })}</b>{" "}
+                {tt("p3.runs.last_error", { error: failedRow.last_error || tt("p3.runs.unknown_error") })}
+              </div>
+            )}
+            {runs.length === 0 && <div className="dim">{tt("automations.no_runs")}</div>}
+            {runs.map((r) => (
+              <div
+                className="sched-run open"
+                key={r.run_id}
+                onClick={() =>
+                  r.session_id &&
+                  onOpenRun(r.session_id, task.workspace, task.agent, {
+                    id: task.id,
+                    title: task.title,
+                  })
+                }
+                title={tt("automations.open_run")}
+              >
+                <div className="sched-run-row">
+                  <span>
+                    {seenMark !== null && r.started_at > seenMark && (
+                      <span className="run-new-pill" data-testid="run-new">{tt("automations.new_pill")}</span>
+                    )}
+                    {fmt(r.started_at)} · <span className={"run-" + r.status}>{r.status}</span> · {r.trigger}
+                    {r.artifacts.length > 0 && <span className="dim"> · {tt("automations.file_count", { count: r.artifacts.length })}</span>}
+                  </span>
+                  <span className="sched-run-go" aria-hidden>
+                    {tt("automations.open_go")}
+                  </span>
+                </div>
+                {r.health && (
+                  <div className="sched-run-health" data-testid="run-health-row">
+                    <span className={"p3-chip " + healthTone(r.health)} data-testid="run-health">{tt(`p3.runs.health.${r.health}`)}</span>
+                    {r.health === "failed" && r.status === "ok" && <span className="dim">{tt("p3.runs.run_said_ok")}</span>}
+                    {r.health === "did_not_finish" && <span className="dim">{tt("p3.runs.still_running")}</span>}
+                    <span className="dim">{tt("p3.runs.duration", { time: formatDuration(r.duration_ms ?? null) })}</span>
+                    <span className="dim" data-testid="run-tokens">
+                      {r.total == null ? tt("p3.runs.tokens_none") : tt("p3.runs.tokens", { tokens: (r.at_least ? "≥ " : "") + formatTokens(r.total) })}
+                    </span>
+                    {(r.check_titles || r.checks || []).map((c, i) => (
+                      <span key={i} className="steps-badge warn">{tt(`steps.issues.title.${(r.checks || [])[i] || c}`, { defaultValue: c })}</span>
+                    ))}
+                    {r.error && <span className="steps-badge err" title={r.error}>{tt("p3.runs.error")}</span>}
+                    {r.turns === 0 && r.total == null && <span className="dim">{tt("p3.runs.not_recorded")}</span>}
+                    {r.first_turn_id && onOpenRunSteps && (
+                      <button className="p3-link ml-auto" data-testid="run-steps"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenRunSteps(r.session_id, r.first_turn_id!, task.workspace, task.agent, { id: task.id, title: task.title });
+                        }}>
+                        {tt("steps.open")}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {r.result_text && <div className="sched-run-peek">{r.result_text}</div>}
+                {r.error && <div className="mcp-error">{r.error}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
