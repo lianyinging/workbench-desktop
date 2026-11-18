@@ -19,17 +19,18 @@ let timer: ReturnType<typeof setInterval> | undefined;
 let inFlight: Promise<void> | null = null;
 
 export function getAdminBaseUrl(): string {
-  const fromEnv =
-    (import.meta as any).env?.VITE_OPC_ADMIN_BASE_URL ||
-    (typeof globalThis !== "undefined" && (globalThis as any).OPC_ADMIN_BASE_URL);
-  if (typeof fromEnv === "string" && fromEnv.trim()) {
-    return fromEnv.trim().replace(/\/$/, "");
-  }
+  // User override (Settings) wins over packaged build default.
   try {
     const stored = localStorage.getItem(ADMIN_BASE_URL_KEY);
     if (stored && stored.trim()) return stored.trim().replace(/\/$/, "");
   } catch {
     /* ignore */
+  }
+  const fromEnv =
+    import.meta.env?.VITE_OPC_ADMIN_BASE_URL ||
+    (typeof globalThis !== "undefined" && (globalThis as any).OPC_ADMIN_BASE_URL);
+  if (typeof fromEnv === "string" && fromEnv.trim()) {
+    return fromEnv.trim().replace(/\/$/, "");
   }
   return DEFAULT_ADMIN_BASE_URL;
 }

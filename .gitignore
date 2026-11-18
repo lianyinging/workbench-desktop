@@ -30,6 +30,8 @@ dist/
 
 # Local secrets (live-smoke BYO keys) — never committed
 .env
+.env.*.local
+# Tracked packaging defaults live under surfaces/gui/.env.development|production|example
 .claude/settings.local.json
 
 # Reviewer eval run outputs stay local; the study archive lives in ocw-context (OPE-225).
