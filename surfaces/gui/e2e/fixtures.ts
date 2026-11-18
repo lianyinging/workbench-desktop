@@ -404,6 +404,9 @@ export async function mockApi(page: import("@playwright/test").Page) {
   // default + persistence themselves are pinned by rail-default.spec.ts.
   await page.addInitScript(() => {
     try {
+      // Fresh desktop session each test — account row uses /opc/desktop/login, not Cloud.
+      localStorage.removeItem("ocw:local-account");
+      localStorage.removeItem("opc:desktop:accessToken");
       if (!localStorage.getItem("ocw-e2e-rail-default")) {
         localStorage.setItem("coworker:rail-hidden:v1", "0");
       }
@@ -1197,6 +1200,42 @@ export async function mockApi(page: import("@playwright/test").Page) {
       { name: "firecrawl", display_name: "Firecrawl", key_mode: "required", key_url: "https://firecrawl.dev", key_source: null as "store" | "env" | null, key_env: "", supports_fetch: true },
     ],
   };
+
+  // OPC admin desktop login (Sidebar LoginModal → http://localhost:9080/opc/desktop/login).
+  // Also arms Cloud mock so one-click connector specs that sign in via the account row still pass.
+  await page.route("**/opc/desktop/login", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    Object.assign(CLOUD_STATE, { signed_in: true, account: "rohit@openworker.com", user_id: "usr_e2e" });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: 200,
+        data: {
+          accessToken: "e2e-desktop-token",
+          userId: 1,
+          userName: "rohit",
+          nickName: "Rohit",
+        },
+      }),
+    });
+  });
+  await page.route("**/opc/desktop/logout", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    Object.assign(CLOUD_STATE, { signed_in: false, account: "", user_id: "" });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ code: 200, data: null }),
+    });
+  });
+  await page.route("**/opc/desktop/industry-apps**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ code: 200, data: [] }),
+    });
+  });
 
   await page.route("**/v1/capabilities", (route) =>
     route.fulfill({
@@ -2653,5 +2692,17 @@ export const test = base.extend({
     await use(page);
   },
 });
+
+/** Sidebar account-row → LoginModal → /opc/desktop/login (nickName Rohit). */
+export async function signInWorkbench(page: Page): Promise<void> {
+  await page.getByTestId("account-row").click();
+  await page.getByTestId("account-sign-in").click();
+  const modal = page.getByTestId("login-modal");
+  await expect(modal).toBeVisible();
+  await modal.getByTestId("login-username").fill("rohit");
+  await modal.getByTestId("login-password").fill("password");
+  await modal.getByTestId("login-submit").click();
+  await expect(page.getByTestId("account-row")).toContainText("Rohit", { timeout: 10_000 });
+}
 
 export { expect };

@@ -2,7 +2,7 @@
 // Default/Sandbox/access tags, the add-modal with One click (read | write
 // consent radios) | Manual private-app pills, and the hidden-fields denylist.
 import { expect } from "@playwright/test";
-import { test } from "./fixtures";
+import { signInWorkbench, test } from "./fixtures";
 
 async function openConnectors(page) {
   await page.goto("/");
@@ -10,17 +10,11 @@ async function openConnectors(page) {
   await page.getByRole("button", { name: "Connectors", exact: true }).click();
 }
 
-async function signIn(page) {
-  await page.getByTestId("account-row").click();
-  await page.getByTestId("account-sign-in").click();
-  await expect(page.getByTestId("account-row")).toContainText("Rohit", { timeout: 10_000 });
-}
-
 test("connect via modal: access radios pick the consent tier; tags reflect it", async ({
   page,
 }) => {
   await openConnectors(page);
-  await signIn(page);
+  await signInWorkbench(page);
 
   // Available row → Connect → the two-pill modal with the access radios
   await page.getByTestId("connector-hubspot").getByRole("button", { name: "Connect" }).click();
@@ -54,7 +48,7 @@ test("manual pane offers the private-app token (no duplicated one-click)", async
 
 test("second portal: sandbox tag, make-default, disconnect repoints", async ({ page }) => {
   await openConnectors(page);
-  await signIn(page);
+  await signInWorkbench(page);
   await page.getByTestId("connector-hubspot").getByRole("button", { name: "Connect" }).click();
   await page.getByTestId("modal-connect-hubspot").click();
   await page.keyboard.press("Escape");
@@ -77,7 +71,7 @@ test("second portal: sandbox tag, make-default, disconnect repoints", async ({ p
 
 test("hidden fields round-trip and read back normalized", async ({ page }) => {
   await openConnectors(page);
-  await signIn(page);
+  await signInWorkbench(page);
   await page.getByTestId("connector-hubspot").getByRole("button", { name: "Connect" }).click();
   await page.getByTestId("modal-connect-hubspot").click();
   await page.keyboard.press("Escape");

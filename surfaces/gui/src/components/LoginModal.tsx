@@ -12,7 +12,7 @@ export function LoginModal({
   onSignedIn,
 }: {
   onClose: () => void;
-  onSignedIn: (username: string) => void;
+  onSignedIn: (username?: string) => void;
 }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");

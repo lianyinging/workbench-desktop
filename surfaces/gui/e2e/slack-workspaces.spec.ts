@@ -3,7 +3,7 @@
 // (One click | Manual), per-workspace disconnect (stop-relaying-only), and the
 // manual Socket-Mode card so neither connect path regresses.
 import { expect } from "@playwright/test";
-import { test } from "./fixtures";
+import { signInWorkbench, test } from "./fixtures";
 
 async function openSlackPage(page) {
   await page.goto("/");
@@ -37,11 +37,9 @@ test("Add workspace opens the modal; signed out shows the sign-in hint, signed i
   await expect(modal.getByPlaceholder("Bot token · xoxb-…")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // sign in from the list's cloud strip, then install one-click
+  // sign in from the account row (OPC LoginModal), then install one-click
   await page.getByTestId("connectors-breadcrumb").click();
-  await page.getByTestId("account-row").click();
-  await page.getByTestId("account-sign-in").click();
-  await expect(page.getByTestId("account-row")).toContainText("Rohit", { timeout: 10_000 });
+  await signInWorkbench(page);
   await page.getByTestId("connector-slack").click();
   await page.getByTestId("manage-local-slack").click();
   await page.getByTestId("add-workspace-btn").click();

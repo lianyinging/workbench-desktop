@@ -228,6 +228,7 @@ export function Sidebar(props: Props) {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
+  // Account row = OPC desktop login (LoginModal → /opc/desktop/login), not Cloud browser flow.
   const [localAccount, setLocalAccountState] = useState<LocalAccount | null>(() => getLocalAccount());
   // Inbox chip sticky unlock (§26): absent until the product first parks an item (or a
   // session first goes Unattended), then permanent. Per-device, like nav collapse.
@@ -261,6 +262,9 @@ export function Sidebar(props: Props) {
       window.removeEventListener(AUTOMATIONS_CHANGED, load);
     };
   }, []);
+  const accountLabel = localAccount
+    ? localAccount.nickName || localAccount.username
+    : null;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   // Two-step delete inside the row's ⋮ menu: Delete arms ("Delete?"), a second click deletes.
@@ -1351,9 +1355,9 @@ export function Sidebar(props: Props) {
                 {localAccount ? (
                   <div
                     className="px-3 py-1.5 mb-1 text-label text-faint truncate border-b border-line"
-                    title={localAccount.nickName || localAccount.username}
+                    title={accountLabel || undefined}
                   >
-                    {localAccount.nickName || localAccount.username}
+                    {accountLabel}
                   </div>
                 ) : (
                   <>
@@ -1368,7 +1372,7 @@ export function Sidebar(props: Props) {
                         setLoginOpen(true);
                       }}
                     >
-                      <Icon name="plug" size={15} className="shrink-0" /> {t("sidebar.sign_in")}
+                      <Icon name="user" size={15} className="shrink-0" /> {t("sidebar.sign_in")}
                     </button>
                   </>
                 )}
@@ -1413,8 +1417,8 @@ export function Sidebar(props: Props) {
             aria-haspopup="menu"
             aria-expanded={appMenuOpen}
             aria-label={
-              localAccount
-                ? t("sidebar.account_aria", { email: localAccount.username })
+              accountLabel
+                ? t("sidebar.account_aria", { email: accountLabel })
                 : t("sidebar.account_not_signed_in_aria")
             }
           >
@@ -1427,14 +1431,10 @@ export function Sidebar(props: Props) {
               }
               aria-hidden
             >
-              {localAccount
-                ? (localAccount.nickName || localAccount.username).slice(0, 1).toUpperCase()
-                : "?"}
+              {accountLabel ? accountLabel.slice(0, 1).toUpperCase() : "?"}
             </span>
             <span className={"truncate " + (localAccount ? "" : "text-muted")}>
-              {localAccount
-                ? localAccount.nickName || localAccount.username
-                : t("sidebar.not_signed_in_row")}
+              {accountLabel || t("sidebar.not_signed_in_row")}
             </span>
             {localAccount && (
               <span
@@ -1493,7 +1493,7 @@ export function Sidebar(props: Props) {
       {loginOpen && (
         <LoginModal
           onClose={() => setLoginOpen(false)}
-          onSignedIn={(username) => setLocalAccountState({ username, signedInAt: Date.now() })}
+          onSignedIn={() => setLocalAccountState(getLocalAccount())}
         />
       )}
     </div>

@@ -3,7 +3,7 @@
 // via the header MODAL (One click | Manual), and the park → allow & deliver flow
 // that admits a new sender login into that installation's allow-list.
 import { expect } from "@playwright/test";
-import { test } from "./fixtures";
+import { signInWorkbench, test } from "./fixtures";
 
 async function openGithubPage(page) {
   await page.goto("/");
@@ -51,9 +51,7 @@ test("add installation opens the modal; signed in installs a second org", async 
 
   // sign in from the list's cloud strip, then install one-click
   await page.getByTestId("connectors-breadcrumb").click();
-  await page.getByTestId("account-row").click();
-  await page.getByTestId("account-sign-in").click();
-  await expect(page.getByTestId("account-row")).toContainText("Rohit", { timeout: 10_000 });
+  await signInWorkbench(page);
   await page.getByTestId("connector-github").click();
   await page.getByTestId("manage-local-github").click();
   await page.getByTestId("add-installation-btn").click();
@@ -72,9 +70,7 @@ test("Add installation explicitly requests the GitHub account picker", async ({
   // Adding an installation must not silently link the existing account again.
   await openGithubPage(page);
   await page.getByTestId("connectors-breadcrumb").click();
-  await page.getByTestId("account-row").click();
-  await page.getByTestId("account-sign-in").click();
-  await expect(page.getByTestId("account-row")).toContainText("Rohit", { timeout: 10_000 });
+  await signInWorkbench(page);
   await page.getByTestId("connector-github").click();
   await page.getByTestId("manage-local-github").click();
 
@@ -93,9 +89,7 @@ test("disconnect removes one installation and keeps the rest", async ({ page }) 
   await openGithubPage(page);
   // add a second installation first (signed-in one-click)
   await page.getByTestId("connectors-breadcrumb").click();
-  await page.getByTestId("account-row").click();
-  await page.getByTestId("account-sign-in").click();
-  await expect(page.getByTestId("account-row")).toContainText("Rohit", { timeout: 10_000 });
+  await signInWorkbench(page);
   await page.getByTestId("connector-github").click();
   await page.getByTestId("manage-local-github").click();
   await page.getByTestId("add-installation-btn").click();

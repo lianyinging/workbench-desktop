@@ -2,7 +2,7 @@
 // one-click pane, exercised via Notion — the pattern all batch-2 connectors
 // share (accounts.py layer: AccountRow shape, Default badge, per-account ×).
 import { expect } from "@playwright/test";
-import { test } from "./fixtures";
+import { signInWorkbench, test } from "./fixtures";
 
 async function openConnectors(page) {
   await page.goto("/");
@@ -12,9 +12,7 @@ async function openConnectors(page) {
 
 async function signInAndConnectFirstWorkspace(page) {
   await openConnectors(page);
-  await page.getByTestId("account-row").click();
-  await page.getByTestId("account-sign-in").click();
-  await expect(page.getByTestId("account-row")).toContainText("Rohit", { timeout: 10_000 });
+  await signInWorkbench(page);
   // Available row → modal with One click | Manual pills → generic one-click
   await page
     .getByTestId("connector-notion")

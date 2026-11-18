@@ -14,7 +14,8 @@ test("boot splash shows the Opc WorkBench star, not the sparkle glyph", async ({
   await page.goto("/");
   const mark = page.locator(".boot-mark");
   await expect(mark).toBeVisible();
-  await expect(mark.locator("svg")).toBeVisible(); // the Icon logo, not a text glyph
+  // Brand mark: PNG logo (preferred) or the 6-point star SVG — never the ✦ text glyph.
+  await expect(mark.locator("img, svg")).toBeVisible();
   await expect(mark).not.toContainText("✦");
   await expect(page.getByText(/Starting Opc WorkBench|Restoring your session/)).toBeVisible();
 });

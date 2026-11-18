@@ -3,7 +3,7 @@
 // always visible, never below any fold — and every signed-out one-click pane carries a
 // real Sign-in button, not a hint pointing at another page.
 import { expect } from "@playwright/test";
-import { test } from "./fixtures";
+import { signInWorkbench, test } from "./fixtures";
 
 async function openConnectors(page) {
   await page.goto("/");
@@ -17,9 +17,8 @@ test("the account row is always visible and signs in from its menu", async ({ pa
   await expect(row).toBeVisible();
   await expect(row).toContainText("Not signed in");
 
-  await row.click();
-  await page.getByTestId("account-sign-in").click();
-  await expect(row).toContainText("Rohit", { timeout: 10_000 });
+  await signInWorkbench(page);
+  await expect(row).toContainText("Rohit");
 
   // Sign out is right there in the same menu once signed in.
   await row.click();

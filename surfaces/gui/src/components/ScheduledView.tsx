@@ -177,7 +177,7 @@ export function ScheduledView({
                   </span>
                 </>
               )}
-              <div
+              <h1
                 className={
                   "inline-flex items-center gap-1.5 h-8 rounded-lg text-body font-semibold text-ink " +
                   (navCollapsed ? "px-3" : "pl-0 pr-3")
@@ -185,7 +185,7 @@ export function ScheduledView({
               >
                 <Icon name="clock" size={18} />
                 {t("automations.title")}
-              </div>
+              </h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <label className="relative flex items-center">

@@ -170,7 +170,7 @@ test("This-Mac scope keeps the full Connectors page; account menu lands here", a
 }) => {
   await page.goto("/");
   await page.getByTestId("account-row").click();
-  await page.getByRole("button", { name: "Connectors" }).click();
+  await page.getByTestId("account-menu").getByRole("button", { name: "Connectors", exact: true }).click();
   // Settings shell, Connectors page selected, the familiar full list.
   await expect(page).toHaveURL(/#\/settings\/connectors$/);
   await expect(
