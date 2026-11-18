@@ -188,7 +188,7 @@ describe("StepsPanel", () => {
       step({ step_id: "w", kind: "wait", name: "approval", status: "unknown", duration_ms: null, attrs: { kind: "approval", where: "inbox" } }),
     ] as any);
     render(<StepsPanel sessionId="s1" onClose={() => {}} />);
-    expect((await screen.findByTestId("steps-gap")).textContent).toContain("1 step was still running when OpenWorker stopped");
+    expect((await screen.findByTestId("steps-gap")).textContent).toContain("1 step was still running when Opc WorkBench stopped");
     const labels = screen.getAllByTestId("steps-row").map((r) => r.textContent);
     expect(labels[1]).toContain("Recording gap");
     expect(labels[2]).toContain("unknown");
