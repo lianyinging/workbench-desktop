@@ -1,8 +1,7 @@
 import type { IndustryAppManifest } from "../../industry-apps/types";
 
-/** Embedded destination — OPC AI 跨境电商工作台. */
-export const AI_ECOM_WORKBENCH_URL =
-  "https://opc-ai-workbench-nov07.wholemesa36.chatgpt.site/";
+/** Destination — OPC AI 电商工作台. */
+export const AI_ECOM_WORKBENCH_URL = "http://118.253.178.37:3030/";
 
 /**
  * First industry app: opened via embed Web (iframe Host).

@@ -80,6 +80,17 @@ fn os_version() -> String {
     String::new()
 }
 
+/// Machine hostname for admin presence / device display name.
+fn machine_hostname() -> String {
+    if let Ok(out) = Command::new("hostname").output() {
+        let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !name.is_empty() {
+            return name;
+        }
+    }
+    String::new()
+}
+
 fn launch_token() -> String {
     format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple())
 }
@@ -784,10 +795,43 @@ pub fn run() {
     let ws = format!("ws://127.0.0.1:{port}");
     // Debug-format yields a quoted JS string literal.
     let inject = format!(
-        "window.__COWORKER_HTTP__={http:?};window.__COWORKER_WS__={ws:?};window.__COWORKER_API_TOKEN__={api_token:?};window.__OCW_PLATFORM__={:?};window.__OCW_OS_VERSION__={:?};",
+        "window.__COWORKER_HTTP__={http:?};window.__COWORKER_WS__={ws:?};window.__COWORKER_API_TOKEN__={api_token:?};window.__OCW_PLATFORM__={:?};window.__OCW_OS_VERSION__={:?};window.__OCW_HOSTNAME__={:?};",
         std::env::consts::OS,
-        os_version()
+        os_version(),
+        machine_hostname()
     );
+    // WKWebView (and some older engines) lack AbortSignal.timeout / AbortSignal.any.
+    // Industry-app iframes (e.g. AI 电商工作台) need this in *subframes*, not only the shell.
+    const ABORT_SIGNAL_POLYFILL: &str = r#"
+(function () {
+  if (typeof AbortSignal === "undefined") return;
+  if (typeof AbortSignal.timeout !== "function") {
+    AbortSignal.timeout = function (ms) {
+      var c = new AbortController();
+      var id = setTimeout(function () {
+        try { c.abort(new DOMException("TimeoutError", "TimeoutError")); }
+        catch (e) { c.abort(); }
+      }, ms);
+      c.signal.addEventListener("abort", function () { clearTimeout(id); }, { once: true });
+      return c.signal;
+    };
+  }
+  if (typeof AbortSignal.any !== "function") {
+    AbortSignal.any = function (signals) {
+      var c = new AbortController();
+      if (!signals || !signals.length) return c.signal;
+      var onAbort = function () { try { c.abort(); } catch (e) {} };
+      for (var i = 0; i < signals.length; i++) {
+        var s = signals[i];
+        if (!s) continue;
+        if (s.aborted) { onAbort(); break; }
+        s.addEventListener("abort", onAbort, { once: true });
+      }
+      return c.signal;
+    };
+  }
+})();
+"#;
 
     tauri::Builder::default()
         // MUST be the first plugin: when a second launch happens (e.g. the user relaunches
@@ -905,7 +949,8 @@ pub fn run() {
                     // worked, DMGs didn't. main.tsx guards against drops outside the
                     // composer navigating the page.
                     .disable_drag_drop_handler()
-                    .initialization_script(&inject);
+                    .initialization_script(&inject)
+                    .initialization_script_for_all_frames(ABORT_SIGNAL_POLYFILL);
             #[cfg(target_os = "macos")]
             {
                 builder = builder

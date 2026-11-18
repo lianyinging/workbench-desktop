@@ -52,6 +52,8 @@ export type IconName =
   | "stop"
   | "warning"
   | "user"
+  | "eye"
+  | "eyeOff"
   | "x";
 
 export function Icon({
@@ -216,6 +218,21 @@ export function Icon({
       return (
         <svg {...s}>
           <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      );
+    case "eye":
+      return (
+        <svg {...s}>
+          <path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+          <circle cx="12" cy="12" r="2.8" />
+        </svg>
+      );
+    case "eyeOff":
+      return (
+        <svg {...s}>
+          <path d="M4 4l16 16" />
+          <path d="M10.1 6.4A9.5 9.5 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-3.4 3.9M7.1 7.2C4.2 9 2.5 12 2.5 12S6 18.5 12 18.5c1.5 0 2.9-.3 4.1-.8" />
+          <path d="M10.2 10.3a2.8 2.8 0 0 0 3.5 3.5" />
         </svg>
       );
     // Full width and back (UX-060): two arrows out of / into the corners.

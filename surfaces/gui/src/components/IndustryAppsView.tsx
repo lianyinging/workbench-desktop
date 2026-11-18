@@ -9,11 +9,16 @@ import { beginWindowDrag, WINDOW_DRAG_CLASS } from "../windowDrag";
 import { Icon } from "./Icon";
 import {
   EmbedHost,
+  INDUSTRY_APPS_CHANGED,
   PluginHost,
+  industryAppLabel,
+  industryAppSub,
   listIndustryApps,
+  loadIndustryAppsCatalog,
   type IndustryAppCategory,
   type IndustryAppManifest,
 } from "../industry-apps";
+import { getAccessToken, LOCAL_AUTH_CHANGED } from "../localAuth";
 import { openExternal } from "../tauri";
 
 export { AI_ECOM_WORKBENCH_URL } from "../plugins";
@@ -21,6 +26,10 @@ export { AI_ECOM_WORKBENCH_URL } from "../plugins";
 type CatId = "all" | IndustryAppCategory;
 
 const CATS: CatId[] = ["all", "listing", "ops", "service", "content", "analytics", "global"];
+
+function tagLabel(tag: string, t: (k: string) => string): string {
+  return tag.includes(".") ? t(tag) : tag;
+}
 
 type Props = {
   /** True while an app is open solo — App hides the desktop sidebar. */
@@ -31,7 +40,7 @@ type Props = {
 };
 
 /**
- * Industry apps — list from local plugin registry; open via EmbedHost / PluginHost.
+ * Industry apps — remote catalog (admin) merged with local plugin Entry.
  */
 export function IndustryAppsView({
   onSoloChange,
@@ -42,7 +51,22 @@ export function IndustryAppsView({
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<CatId>("all");
   const [active, setActive] = useState<IndustryAppManifest | null>(null);
-  const apps = useMemo(() => listIndustryApps(), []);
+  const [rev, setRev] = useState(0);
+  const apps = useMemo(() => listIndustryApps(), [rev]);
+
+  useEffect(() => {
+    const onChange = () => setRev((n) => n + 1);
+    window.addEventListener(INDUSTRY_APPS_CHANGED, onChange);
+    return () => window.removeEventListener(INDUSTRY_APPS_CHANGED, onChange);
+  }, []);
+
+  // Every time this page opens (mount), and after desktop login/logout, re-fetch entitlements.
+  useEffect(() => {
+    void loadIndustryAppsCatalog({ force: true });
+    const onAuth = () => void loadIndustryAppsCatalog({ force: true });
+    window.addEventListener(LOCAL_AUTH_CHANGED, onAuth);
+    return () => window.removeEventListener(LOCAL_AUTH_CHANGED, onAuth);
+  }, []);
 
   useEffect(() => {
     onSoloChange?.(active != null);
@@ -54,13 +78,13 @@ export function IndustryAppsView({
     return apps.filter((app) => {
       if (cat !== "all" && app.category !== cat) return false;
       if (!q) return true;
-      const hay = `${t(app.titleKey)} ${t(app.subKey)} ${app.id}`.toLowerCase();
+      const hay = `${industryAppLabel(app, t)} ${industryAppSub(app, t)} ${app.id}`.toLowerCase();
       return hay.includes(q);
     });
   }, [apps, query, cat, t]);
 
   if (active) {
-    const title = t(active.titleKey);
+    const title = industryAppLabel(active, t);
     if (active.mode === "plugin") {
       return <PluginHost app={active} title={title} onBack={() => setActive(null)} />;
     }
@@ -147,55 +171,100 @@ export function IndustryAppsView({
           ) : (
             <div className="grid gap-3 sm:grid-cols-2" data-testid="industry-apps-grid">
               {visible.map((app) => {
-                const title = t(app.titleKey);
+                const title = industryAppLabel(app, t);
+                const pluginMissing = app.mode === "plugin" && app.available === false;
+                const noAccess = app.accessible === false;
+                const locked = pluginMissing || noAccess;
+                const lockTip = pluginMissing
+                  ? t("industry_apps.unavailable")
+                  : noAccess
+                    ? app.visibility === "login"
+                      ? t("industry_apps.need_login")
+                      : getAccessToken()
+                        ? t("industry_apps.need_subscribe")
+                        : t("industry_apps.need_login")
+                    : undefined;
                 return (
                   <article
                     key={app.id}
-                    className="group relative rounded-xl2 border border-line bg-panel px-4 py-4 hover:border-lineStrong hover:bg-chromeHover/40 transition-colors"
+                    className={
+                      "group relative rounded-xl2 border border-line bg-panel px-4 py-4 transition-colors " +
+                      (locked
+                        ? "opacity-60"
+                        : "hover:border-lineStrong hover:bg-chromeHover/40")
+                    }
                     data-testid={`industry-app-${app.id}`}
+                    title={lockTip}
                   >
                     <div className="flex items-center gap-3 pr-16">
                       <div
-                        className="w-14 h-14 rounded-xl shrink-0 grid place-items-center text-white [&_svg]:text-white"
-                        style={{ background: app.tone }}
+                        className="w-14 h-14 rounded-xl shrink-0 grid place-items-center overflow-hidden text-white [&_svg]:text-white"
+                        style={{ background: app.logo ? "#fff" : app.tone }}
                         aria-hidden
                       >
-                        <Icon name={app.icon} size={24} />
+                        {app.logo ? (
+                          <img src={app.logo} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Icon name={app.icon} size={24} />
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-body font-semibold text-ink truncate">{title}</div>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
+                    <div
                       className={
-                        "absolute top-3.5 right-3.5 h-8 px-3.5 rounded-full bg-ink text-white text-ui font-medium " +
+                        "absolute top-3.5 right-3.5 flex flex-col items-end gap-1 " +
                         "opacity-0 pointer-events-none translate-y-0.5 " +
                         "group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 " +
                         "group-focus-within:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 " +
-                        "transition-[opacity,transform] duration-150 hover:opacity-90"
+                        "transition-[opacity,transform] duration-150"
                       }
-                      data-testid={`industry-app-go-${app.id}`}
-                      onClick={() => {
-                        if (app.mode === "external" && app.url) {
-                          openExternal(app.url);
-                          return;
-                        }
-                        setActive(app);
-                      }}
                     >
-                      {t("industry_apps.go")}
-                    </button>
+                      <button
+                        type="button"
+                        className={
+                          "h-8 px-3.5 rounded-full bg-ink text-white text-ui font-medium " +
+                          "hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                        }
+                        data-testid={`industry-app-go-${app.id}`}
+                        disabled={locked}
+                        aria-disabled={locked}
+                        aria-label={lockTip ? `${t("industry_apps.go")}: ${lockTip}` : t("industry_apps.go")}
+                        title={lockTip}
+                        onClick={() => {
+                          if (locked) return;
+                          if (app.mode === "external" && app.url) {
+                            openExternal(app.url);
+                            return;
+                          }
+                          setActive(app);
+                        }}
+                      >
+                        {t("industry_apps.go")}
+                      </button>
+                      {lockTip ? (
+                        <div
+                          className="max-w-[11rem] rounded-md bg-ink text-white text-meta px-2 py-1 leading-snug shadow-sm"
+                          role="tooltip"
+                          data-testid={`industry-app-tip-${app.id}`}
+                        >
+                          {lockTip}
+                        </div>
+                      ) : null}
+                    </div>
 
-                    <p className="text-ui text-muted mt-2.5 line-clamp-2 leading-snug">{t(app.subKey)}</p>
+                    <p className="text-ui text-muted mt-2.5 line-clamp-2 leading-snug">
+                      {industryAppSub(app, t)}
+                    </p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {app.tags.map((tk) => (
                         <span
                           key={tk}
                           className="text-label px-1.5 py-0.5 rounded-md bg-chromeHover/80 text-muted"
                         >
-                          {t(tk)}
+                          {tagLabel(tk, t)}
                         </span>
                       ))}
                     </div>

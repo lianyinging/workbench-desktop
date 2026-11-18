@@ -1351,9 +1351,9 @@ export function Sidebar(props: Props) {
                 {localAccount ? (
                   <div
                     className="px-3 py-1.5 mb-1 text-label text-faint truncate border-b border-line"
-                    title={localAccount.username}
+                    title={localAccount.nickName || localAccount.username}
                   >
-                    {localAccount.username}
+                    {localAccount.nickName || localAccount.username}
                   </div>
                 ) : (
                   <>
@@ -1427,10 +1427,14 @@ export function Sidebar(props: Props) {
               }
               aria-hidden
             >
-              {localAccount ? localAccount.username.slice(0, 1).toUpperCase() : "?"}
+              {localAccount
+                ? (localAccount.nickName || localAccount.username).slice(0, 1).toUpperCase()
+                : "?"}
             </span>
             <span className={"truncate " + (localAccount ? "" : "text-muted")}>
-              {localAccount ? localAccount.username : t("sidebar.not_signed_in_row")}
+              {localAccount
+                ? localAccount.nickName || localAccount.username
+                : t("sidebar.not_signed_in_row")}
             </span>
             {localAccount && (
               <span

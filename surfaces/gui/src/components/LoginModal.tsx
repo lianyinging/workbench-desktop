@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { setLocalAccount } from "../localAuth";
+import { loginWithPassword } from "../localAuth";
 import { Icon } from "./Icon";
 import appLogo from "../assets/logo.png";
 
@@ -17,6 +17,7 @@ export function LoginModal({
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const userRef = useRef<HTMLInputElement>(null);
@@ -44,13 +45,12 @@ export function LoginModal({
     setBusy(true);
     setError(null);
     try {
-      // Local session for now — OPC /auth/login can replace this path later.
-      await new Promise((r) => setTimeout(r, 180));
-      setLocalAccount(u);
-      onSignedIn(u);
+      const account = await loginWithPassword(u, password);
+      onSignedIn(account.nickName || account.username);
       onClose();
-    } catch {
-      setError(t("login.error_failed"));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t("login.error_failed");
+      setError(msg || t("login.error_failed"));
     } finally {
       setBusy(false);
     }
@@ -99,16 +99,29 @@ export function LoginModal({
           </label>
           <label className="block">
             <span className="block text-meta text-muted mb-1">{t("login.password")}</span>
-            <input
-              className={INPUT}
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={t("login.password_placeholder")}
-              autoComplete="current-password"
-              data-testid="login-password"
-              disabled={busy}
-            />
+            <div className="relative">
+              <input
+                className={INPUT + " pr-10"}
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t("login.password_placeholder")}
+                autoComplete="current-password"
+                data-testid="login-password"
+                disabled={busy}
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-faint hover:text-ink disabled:opacity-50"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? t("login.hide_password") : t("login.show_password")}
+                data-testid="login-password-toggle"
+                disabled={busy}
+                tabIndex={-1}
+              >
+                <Icon name={showPassword ? "eyeOff" : "eye"} size={16} />
+              </button>
+            </div>
           </label>
 
           {error && (

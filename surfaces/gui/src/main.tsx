@@ -6,6 +6,8 @@ import { initTheme } from "./theme";
 import { initTextSize } from "./textSize";
 import { platformOS } from "./tauri";
 import { initI18n } from "./i18n";
+import { startAdminPresence } from "./adminPresence";
+import { loadIndustryAppsCatalog } from "./industry-apps";
 import "./tailwind.css";
 import "./styles.css";
 
@@ -13,6 +15,10 @@ initTheme();
 initTextSize();
 // Platform hook for CSS (html[data-platform="windows"] scrollbar styling etc.).
 document.documentElement.dataset.platform = platformOS();
+// Report online presence to the OPC admin backend (register + 30s heartbeat).
+startAdminPresence();
+// Industry apps catalog (public apps shown without login).
+void loadIndustryAppsCatalog();
 
 // A file dropped OUTSIDE a drop target (the composer) must never navigate the webview to the
 // file itself — the browser/WKWebView default. Drop targets stopPropagation-free preventDefault

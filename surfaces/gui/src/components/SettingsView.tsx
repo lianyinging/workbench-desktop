@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getI18n, Trans, useTranslation } from "react-i18next";
 import { getStoredLanguage, setLanguage as setI18nLanguage, type Lang } from "../i18n";
 import {
@@ -64,6 +64,7 @@ import {
   type DictationDownloadProgress,
   type DictationStatus,
 } from "../tauri";
+import { getAdminBaseUrl, getOrCreateDeviceId, setAdminBaseUrl } from "../adminPresence";
 import { canSignOut, cloudSignOut } from "../cloudAuth";
 import { reflectSettings, settingsMachineParam } from "../routes";
 import { useThemePref } from "../theme";
@@ -999,6 +1000,9 @@ function AppearanceSection() {
   const desktop = isTauri();
   // "system" = no explicit choice persisted; the app follows the OS locale.
   const [currentLang, setCurrentLang] = useState<Lang | "system">(() => getStoredLanguage() ?? "system");
+  const [adminUrl, setAdminUrl] = useState(() => getAdminBaseUrl());
+  const [adminMsg, setAdminMsg] = useState<string | null>(null);
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
 
   useEffect(() => {
     if (isTauri()) {
@@ -1016,6 +1020,10 @@ function AppearanceSection() {
   const changeLang = (lang: Lang | "system") => {
     setCurrentLang(lang);
     void setI18nLanguage(lang === "system" ? null : lang);
+  };
+  const saveAdminUrl = () => {
+    setAdminBaseUrl(adminUrl);
+    setAdminMsg("Saved — presence will use the new address");
   };
 
   return (
@@ -1049,6 +1057,33 @@ function AppearanceSection() {
         </div>
         <div className={FIELD_HELP}>{t("settings.language_help")}</div>
       </div>
+
+      {desktop && (
+        <div className={CARD + " p-4 mb-4"} data-testid="admin-presence-card">
+          <div className={FIELD_LABEL}>Admin backend</div>
+          <div className={FIELD_HELP}>
+            Base URL for online presence (register / heartbeat). Device ID: {deviceId}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              className={INPUT}
+              type="text"
+              value={adminUrl}
+              spellCheck={false}
+              placeholder="http://localhost:9080"
+              onChange={(e) => {
+                setAdminUrl(e.target.value);
+                setAdminMsg(null);
+              }}
+              data-testid="admin-base-url"
+            />
+            <button className={BTN_ACCENT} onClick={saveAdminUrl} data-testid="admin-base-url-save">
+              Save
+            </button>
+          </div>
+          {adminMsg && <div className="text-ui text-muted mt-2">{adminMsg}</div>}
+        </div>
+      )}
 
       <div className={CARD + " p-4 mb-4"} data-testid="text-size-card">
         <div className={FIELD_LABEL}>{t("settingsx.text_size.title")}</div>
