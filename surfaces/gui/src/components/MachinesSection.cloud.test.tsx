@@ -1,4 +1,4 @@
-// The OpenWorker Cloud machines list is not announced yet (2026-09-30): only internal
+// The Opc WorkBench Cloud machines list is not announced yet (2026-09-30): only internal
 // builds show it, or even ask the cloud for it. Sign-in itself is untouched.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
@@ -39,6 +39,6 @@ describe("cloud machines section", () => {
     stub(true);
     render(<MachinesSection />);
     await waitFor(() => expect(screen.getByTestId("cloud-machines-section")).toBeTruthy());
-    expect(screen.getByTestId("cloud-machines-section").textContent).toContain("OpenWorker Cloud");
+    expect(screen.getByTestId("cloud-machines-section").textContent).toContain("Opc WorkBench Cloud");
   });
 });

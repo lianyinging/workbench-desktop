@@ -25,7 +25,7 @@ test("request_tool surfaces a card naming the tool, the reason and the pinned ve
   // Plain-language consent: who installs (OpenWorker), from where, and the self-install
   // alternative — no supply-chain jargon on the card (owner feedback 2026-08-15).
   await expect(facts).toContainText(
-    "OpenWorker installs its own verified copy from github.com/gitleaks — or install it yourself and continue.",
+    "Opc WorkBench installs its own verified copy from github.com/gitleaks — or install it yourself and continue.",
   );
   // Declining must read as a normal choice that continues the run, not a failure.
   await expect(card.getByTestId("toolreq-skip")).toHaveText("Continue without it");
