@@ -3,11 +3,11 @@
 
 Run by the release CI job after all platform builds are staged in one directory:
 
-    python3 make_update_manifest.py --version 0.3.4 --tag v0.3.4 \
+    python3 make_update_manifest.py --version 0.3.5 --tag v0.3.5 \
         --repo lianyinging/workbench-desktop --dist dist/ --out dist/latest.json
 
     # Or point asset URLs at Aliyun OSS / CDN (no trailing slash):
-    python3 make_update_manifest.py --version 0.3.4 --tag v0.3.4 \
+    python3 make_update_manifest.py --version 0.3.5 --tag v0.3.5 \
         --repo lianyinging/workbench-desktop --dist dist/ --out dist/latest.json \
         --base-url https://your-bucket.oss-cn-hangzhou.aliyuncs.com/opc-workbench
 

@@ -7,7 +7,7 @@ export const isTauri = (): boolean =>
   typeof (globalThis as any).__TAURI__ !== "undefined";
 
 /** App version for chrome labels. Prefers Tauri's getVersion; falls back to the shipped DMG version. */
-export const FALLBACK_APP_VERSION = "0.3.4";
+export const FALLBACK_APP_VERSION = "0.3.5";
 
 export async function getAppVersion(): Promise<string> {
   const api = (globalThis as any).__TAURI__?.app;
