@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Opc WorkBench",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "identifier": "com.opc.workbench",
   "build": {
     "frontendDist": "../dist",
@@ -46,10 +46,9 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://download.openworker.com/latest.json",
-        "https://github.com/andrewyng/openworker/releases/latest/download/latest.json"
+        "https://github.com/lianyinging/workbench-desktop/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVCNzEzRjY5OTkzNUNBNjkKUldScHlqV1phVDl4VzBvTnFLLytzaDkzNVd3WWNuUm8yNE95WTBFNnBtcGF1RENxeTRuNVhQeloK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdBQjM5NzkzNUNBNEFBOUIKUldTYnFxUmNrNWV6ZXFmcVNhUVZGbU1uZVk2ZlBMa0E1OXlQbVBGL0ZsSjJjRGZxWjJJUnR1VzgK",
       "windows": {
         "installMode": "passive"
       }

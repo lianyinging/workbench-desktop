@@ -221,11 +221,12 @@ jobs:
           merge-multiple: true
 
       - name: Compose the auto-update manifest (latest.json)
-        # Shipped apps poll releases/latest/download/latest.json (via the branded
-        # download.openworker.com redirect) — publishing this release IS pushing the
-        # update. The tag must match tauri.conf.json's version or installed apps would
-        # see a permanent phantom update; fail loudly on drift. Runs only when signed
-        # updater artifacts exist (i.e. the TAURI_SIGNING_PRIVATE_KEY secret is set).
+        # Clients poll releases/latest/download/latest.json (see tauri.conf.json
+        # plugins.updater.endpoints). Optional secret OPC_UPDATE_PUBLIC_BASE rewrites
+        # asset urls to Aliyun OSS/CDN; upload the same filenames there after release.
+        # Tag must match tauri.conf.json version. Needs .sig from TAURI_SIGNING_PRIVATE_KEY.
+        env:
+          OPC_UPDATE_PUBLIC_BASE: ${{ secrets.OPC_UPDATE_PUBLIC_BASE }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           CONF_VERSION=$(python3 -c "import json; print(json.load(open('surfaces/gui/src-tauri/tauri.conf.json'))['version'])")
@@ -234,10 +235,15 @@ jobs:
             exit 1
           fi
           if ls dist/*.sig >/dev/null 2>&1; then
+            EXTRA=()
+            if [ -n "${OPC_UPDATE_PUBLIC_BASE:-}" ]; then
+              EXTRA=(--base-url "$OPC_UPDATE_PUBLIC_BASE")
+            fi
             python3 packaging/make_update_manifest.py \
               --version "${TAG#v}" --tag "$TAG" --repo "$GITHUB_REPOSITORY" \
               --dist dist --out dist/latest.json \
-              --notes "Opc WorkBench ${TAG#v}"
+              --notes "Opc WorkBench ${TAG#v}" \
+              "${EXTRA[@]}"
           else
             echo "::warning::no updater signatures in dist/ — release ships WITHOUT auto-update manifest"
           fi

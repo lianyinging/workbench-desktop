@@ -2676,11 +2676,23 @@
     },
     "tab": {
       "account": "Account",
+      "app_logs": "App logs",
       "slack": "Slack",
       "github": "GitHub",
       "machines": "Machines",
       "sandbox": "Sandbox",
       "observability": "Observability"
+    },
+    "app_logs": {
+      "title": "App logs",
+      "sub": "HTTP calls this session made to the admin backend (opc-admin) — login, presence, and industry-app catalog.",
+      "scope": "What is logged",
+      "scope_help": "Admin base: {{base}}. Sensitive fields (password, tokens) are redacted. Cleared when the app quits.",
+      "clear": "Clear",
+      "empty": "No requests yet. Sign in, open Industry apps, or wait for a heartbeat.",
+      "failed": "Failed",
+      "request": "Request",
+      "response": "Response preview"
     },
     "back_to_app": "Back to app",
     "machine_scope_aria": "Machine scope",

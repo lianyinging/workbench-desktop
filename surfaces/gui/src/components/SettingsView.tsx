@@ -81,6 +81,7 @@ import { RemoteConnectorsPanel } from "./RemoteConnectorsPanel";
 import { MemorySection } from "./MemorySection";
 import { SandboxSection } from "./SandboxSection";
 import { ObservabilitySection } from "./ObservabilitySection";
+import { AppLogsSection } from "./AppLogsSection";
 import { CustomizationTab } from "./CustomizationTab";
 import { PersonasTab } from "./PersonasTab";
 import { SkillsTab } from "./SkillsTab";
@@ -111,7 +112,9 @@ export type SetTab =
   | "personas"
   // UX-049: per-connector glance pages (App group), shown once connected somewhere.
   | "slack"
-  | "github";
+  | "github"
+  /** OPC admin HTTP request log (login / presence / industry-apps). */
+  | "appLogs";
 
 // Feature worktrees (Code coworker, owner ruling 2026-11-07): where a task's worktree
 // goes, how its branch is named, fetch-first, cleanup, and the per-repo setup command.
@@ -258,6 +261,7 @@ const SET_GROUPS: { name: string; nameKey?: string; scope: "app" | "machine" | "
       { key: "appearance", label: "General", labelKey: "settings.tab.general", icon: "sliders" },
       { key: "voice", label: "Voice input", labelKey: "settings.tab.voice", icon: "mic" },
       { key: "account", label: "Account", labelKey: "settingsx.tab.account", icon: "user" },
+      { key: "appLogs", label: "App logs", labelKey: "settingsx.tab.app_logs", icon: "audit" },
       { key: "slack", label: "Slack", labelKey: "settingsx.tab.slack", icon: "plug" },
       { key: "github", label: "GitHub", labelKey: "settingsx.tab.github", icon: "plug" },
     ],
@@ -480,6 +484,8 @@ export function SettingsView({
             <AppearanceSection />
           ) : tab === "account" ? (
             <AccountSection />
+          ) : tab === "appLogs" ? (
+            <AppLogsSection />
           ) : tab === "models" ? (
             scoped ? (
               <MachineModelsPanel machine={scoped} />

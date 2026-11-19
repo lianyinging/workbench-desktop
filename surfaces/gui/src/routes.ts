@@ -22,6 +22,7 @@ const TAB_BY_SLUG: Record<string, string> = {
   general: "appearance",
   voice: "voice",
   account: "account",
+  "app-logs": "appLogs",
   models: "models",
   context: "context",
   skills: "skills",

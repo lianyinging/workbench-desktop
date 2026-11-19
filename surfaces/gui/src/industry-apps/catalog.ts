@@ -3,6 +3,7 @@
  * Public apps are returned without login; login-visibility apps need Bearer.
  */
 import { getAdminBaseUrl } from "../adminPresence";
+import { loggedFetch } from "../appRequestLog";
 import { getAccessToken } from "../localAuth";
 import type { IndustryAppRemoteDto } from "./types";
 
@@ -47,7 +48,7 @@ export function loadIndustryAppsCatalog(opts?: { force?: boolean }): Promise<Ind
       const headers: Record<string, string> = { Accept: "application/json" };
       const token = getAccessToken();
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${getAdminBaseUrl()}/opc/desktop/industry-apps`, { headers });
+      const res = await loggedFetch(`${getAdminBaseUrl()}/opc/desktop/industry-apps`, { headers });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || (json && typeof json.code === "number" && json.code !== 200)) {
         throw new Error((json && (json.msg || json.message)) || `HTTP ${res.status}`);

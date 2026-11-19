@@ -2623,11 +2623,23 @@
     },
     "tab": {
       "account": "账户",
+      "app_logs": "应用日志",
       "slack": "Slack",
       "github": "GitHub",
       "machines": "机器",
       "sandbox": "沙箱",
       "observability": "可观测性"
+    },
+    "app_logs": {
+      "title": "应用日志",
+      "sub": "本会话内对管理后台（opc-admin）的 HTTP 请求记录，便于排查登录、心跳与行业应用清单。",
+      "scope": "记录范围",
+      "scope_help": "当前管理端：{{base}}。密码等敏感字段已脱敏。关闭应用后清空。",
+      "clear": "清空",
+      "empty": "暂无请求记录。登录、进入行业应用或等待心跳后会出现在这里。",
+      "failed": "失败",
+      "request": "请求体",
+      "response": "响应预览"
     },
     "back_to_app": "返回应用",
     "machine_scope_aria": "机器范围",

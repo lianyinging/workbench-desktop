@@ -2,6 +2,7 @@
  * Opc WorkBench desktop login session (opc_desktop_user via /opc/desktop/login).
  */
 import { getAdminBaseUrl, getOrCreateDeviceId } from "./adminPresence";
+import { loggedFetch } from "./appRequestLog";
 
 export type LocalAccount = {
   username: string;
@@ -64,7 +65,7 @@ export function clearLocalAccount(): void {
   localStorage.removeItem(TOKEN_KEY);
   window.dispatchEvent(new Event(LOCAL_AUTH_CHANGED));
   if (token) {
-    void fetch(`${getAdminBaseUrl()}/opc/desktop/logout`, {
+    void loggedFetch(`${getAdminBaseUrl()}/opc/desktop/logout`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => undefined);
@@ -85,7 +86,7 @@ type LoginResult = {
  */
 export async function loginWithPassword(username: string, password: string): Promise<LocalAccount> {
   const u = username.trim();
-  const res = await fetch(`${getAdminBaseUrl()}/opc/desktop/login`, {
+  const res = await loggedFetch(`${getAdminBaseUrl()}/opc/desktop/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

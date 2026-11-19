@@ -2,6 +2,7 @@
  * Report this desktop instance to the OPC admin backend (register + heartbeat).
  * Failures are swallowed so the main UI is never blocked.
  */
+import { loggedFetch } from "./appRequestLog";
 import { FALLBACK_APP_VERSION, getAppVersion, isTauri, platformOS } from "./tauri";
 
 const DEVICE_ID_KEY = "opc:desktop:deviceId";
@@ -130,7 +131,7 @@ async function postJson<T>(path: string, body: unknown, token?: string | null): 
     clientId: DEFAULT_CLIENT_ID,
   };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${base}${path}`, {
+  const res = await loggedFetch(`${base}${path}`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),

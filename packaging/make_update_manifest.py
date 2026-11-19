@@ -3,8 +3,13 @@
 
 Run by the release CI job after all platform builds are staged in one directory:
 
-    python3 make_update_manifest.py --version 0.1.2 --tag v0.1.2 \
-        --repo andrewyng/aisuite --dist dist/ --out dist/latest.json
+    python3 make_update_manifest.py --version 0.3.4 --tag v0.3.4 \
+        --repo lianyinging/workbench-desktop --dist dist/ --out dist/latest.json
+
+    # Or point asset URLs at Aliyun OSS / CDN (no trailing slash):
+    python3 make_update_manifest.py --version 0.3.4 --tag v0.3.4 \
+        --repo lianyinging/workbench-desktop --dist dist/ --out dist/latest.json \
+        --base-url https://your-bucket.oss-cn-hangzhou.aliyuncs.com/opc-workbench
 
 Looks for the updater artifacts by their STABLE names (the same names release.yml
 uploads):
@@ -13,15 +18,11 @@ uploads):
     OpcWorkbench-macos-x64.app.tar.gz(.sig)     -> platforms["darwin-x86_64"]
     OpcWorkbench-windows-setup.exe(.sig)        -> platforms["windows-x86_64"]
 
-URLs point at the TAG-pinned GitHub download path (releases/download/<tag>/<asset>),
-never at `latest/` — a manifest must reference exactly the artifacts it shipped with,
-or a half-published release would mix versions. Platforms whose artifact or .sig is
-missing are SKIPPED with a warning (e.g. a mac-only hotfix release), so shipped apps
-on other platforms simply see no update rather than a broken one.
+Without --base-url, URLs point at the TAG-pinned GitHub download path
+(releases/download/<tag>/<asset>), never at `latest/`. With --base-url, each
+asset is `$base/$asset` (upload the same filenames to OSS).
 
-The desktop app finds this file through https://download.openworker.com/latest.json
-(branded redirect) falling back to the repo's releases/latest/download/latest.json —
-see tauri.conf.json `plugins.updater.endpoints`.
+Platforms whose artifact or .sig is missing are SKIPPED with a warning.
 """
 
 from __future__ import annotations
@@ -40,13 +41,21 @@ ARTIFACTS = {
 }
 
 
+def asset_url(base_url: str | None, repo: str, tag: str, asset: str) -> str:
+    if base_url:
+        return f"{base_url.rstrip('/')}/{asset}"
+    return f"https://github.com/{repo}/releases/download/{tag}/{asset}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--version", required=True, help="bare version, e.g. 0.1.2")
+    ap.add_argument("--version", required=True, help="bare version, e.g. 0.3.4")
     ap.add_argument(
-        "--tag", required=True, help="git tag the assets live under, e.g. v0.1.2"
+        "--tag", required=True, help="git tag the assets live under, e.g. v0.3.4"
     )
-    ap.add_argument("--repo", required=True, help="owner/name, e.g. andrewyng/aisuite")
+    ap.add_argument(
+        "--repo", required=True, help="owner/name, e.g. lianyinging/workbench-desktop"
+    )
     ap.add_argument(
         "--dist", required=True, type=pathlib.Path, help="staged artifacts dir"
     )
@@ -54,7 +63,13 @@ def main() -> int:
     ap.add_argument(
         "--notes", default="", help="release notes line shown in the update prompt"
     )
+    ap.add_argument(
+        "--base-url",
+        default="",
+        help="optional public base (OSS/CDN) for asset urls; empty = GitHub release urls",
+    )
     args = ap.parse_args()
+    base = (args.base_url or "").strip() or None
 
     platforms: dict[str, dict[str, str]] = {}
     for asset, platform in ARTIFACTS.items():
@@ -74,7 +89,7 @@ def main() -> int:
             continue
         platforms[platform] = {
             "signature": sig.read_text().strip(),
-            "url": f"https://github.com/{args.repo}/releases/download/{args.tag}/{asset}",
+            "url": asset_url(base, args.repo, args.tag, asset),
         }
 
     if not platforms:
@@ -93,7 +108,8 @@ def main() -> int:
         "platforms": platforms,
     }
     args.out.write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"wrote {args.out} ({', '.join(sorted(platforms))})")
+    where = base or f"github.com/{args.repo}"
+    print(f"wrote {args.out} ({', '.join(sorted(platforms))}) urls→{where}")
     return 0
 
 
