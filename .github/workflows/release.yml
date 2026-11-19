@@ -127,11 +127,8 @@ jobs:
           fi
           unset APPLE_API_KEY_CONTENT
           bash packaging/build_dmg.sh
-          # The command-line program for the Mac, from the same venv and identity: signed
-          # and notarized when the secrets are present.
-          bash packaging/build_macos_cli.sh
 
-      - name: Build .msi + NSIS .exe (Windows)
+      - name: Build NSIS .exe (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
@@ -139,32 +136,28 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: ./packaging/build_windows.ps1
 
-      - name: Stage artifacts (versioned + stable names)
+      # Slim release assets only (stable names). No versioned duplicates, MSI, or CLI tarballs.
+      #   Win: OpcWorkbench-windows-setup.exe(+.sig)
+      #   Mac: OpcWorkbench-<slug>.dmg + .app.tar.gz(+.sig for updater)
+      - name: Stage slim release assets
         run: |
           mkdir -p out
           BUNDLE=surfaces/gui/src-tauri/target/release/bundle
           if [ "$RUNNER_OS" = "Windows" ]; then
-            cp "$BUNDLE"/nsis/*.exe out/
-            cp "$BUNDLE"/nsis/*.exe out/OpcWorkbench-windows-setup.exe
-            cp "$BUNDLE"/msi/*.msi out/
-            cp "$BUNDLE"/msi/*.msi out/OpcWorkbench-windows.msi
-            # Updater signature for the NSIS installer (present only when the updater key
-            # secret is configured). The .sig signs CONTENT, so the stable rename is safe.
+            EXE=$(ls "$BUNDLE"/nsis/*.exe 2>/dev/null | head -1)
+            [ -n "$EXE" ] || { echo "no NSIS exe"; exit 1; }
+            cp "$EXE" out/OpcWorkbench-windows-setup.exe
             SIG=$(ls "$BUNDLE"/nsis/*.exe.sig 2>/dev/null | head -1 || true)
             [ -n "$SIG" ] && cp "$SIG" out/OpcWorkbench-windows-setup.exe.sig
           else
-            cp "$BUNDLE"/dmg/*.dmg out/
-            cp "$BUNDLE"/dmg/*.dmg out/OpcWorkbench-${{ matrix.slug }}.dmg
-            # macOS updater artifact: productName is "Opc WorkBench" → "Opc WorkBench.app.tar.gz"
+            DMG=$(ls "$BUNDLE"/dmg/*.dmg 2>/dev/null | head -1)
+            [ -n "$DMG" ] || { echo "no DMG"; exit 1; }
+            cp "$DMG" out/OpcWorkbench-${{ matrix.slug }}.dmg
             if [ -f "$BUNDLE/macos/Opc WorkBench.app.tar.gz" ]; then
               cp "$BUNDLE/macos/Opc WorkBench.app.tar.gz" out/OpcWorkbench-${{ matrix.slug }}.app.tar.gz
-              cp "$BUNDLE/macos/Opc WorkBench.app.tar.gz.sig" out/OpcWorkbench-${{ matrix.slug }}.app.tar.gz.sig
+              [ -f "$BUNDLE/macos/Opc WorkBench.app.tar.gz.sig" ] && \
+                cp "$BUNDLE/macos/Opc WorkBench.app.tar.gz.sig" out/OpcWorkbench-${{ matrix.slug }}.app.tar.gz.sig
             fi
-            # The command-line program, named by uname -m (arm64, x86_64) as install.sh asks.
-            ARCH=$(uname -m)
-            cp packaging/dist/openworker-*-macos-"$ARCH".tar.gz* out/
-            cp packaging/dist/openworker-*-macos-"$ARCH".tar.gz out/openworker-macos-"$ARCH".tar.gz
-            (cd out && shasum -a 256 openworker-macos-"$ARCH".tar.gz > openworker-macos-"$ARCH".tar.gz.sha256)
           fi
           ls -la out
 
