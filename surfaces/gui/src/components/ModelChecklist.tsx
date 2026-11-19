@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { addModel, getSettings, removeModel, setDefaultModel } from "../api";
+import { SelectMenu } from "./SelectMenu";
 
 // Cloud-account providers dispatch by a family segment baked into the model id
 // (`bedrock:claude/…`, `vertex:openweight/…`). The add-model row shows a dropdown so
@@ -115,18 +116,14 @@ export function ModelChecklist({
       })}
       <div className="mlist-add">
         {families && (
-          <select
+          <SelectMenu
+            className="mlist-family"
+            testId="mlist-family"
+            ariaLabel="Model family"
             value={family}
-            onChange={(e) => setFamily(e.target.value)}
-            aria-label="Model family"
-            data-testid="mlist-family"
-          >
-            {families.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
+            options={families.map((f) => ({ value: f.value, label: f.label }))}
+            onChange={setFamily}
+          />
         )}
         <input
           placeholder={t("models.add_placeholder")}

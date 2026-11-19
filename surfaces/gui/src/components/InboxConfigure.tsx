@@ -20,6 +20,7 @@ import {
 import type { SessionInfo } from "../types";
 import { ChannelPicker } from "./SubscriptionsChip";
 import { Icon } from "./Icon";
+import { SelectMenu } from "./SelectMenu";
 
 // Inbox ▸ Configure (UX-DECISIONS §28): the former Connectors ▸ "Messaging routing" page,
 // relocated whole — where inbox items go out (mirror channel), how inbound messages reach
@@ -27,7 +28,6 @@ import { Icon } from "./Icon";
 // also deleted a duplication: the mirror channel used to be editable BOTH on this page and
 // via an inline configurator on the Inbox list.
 const CARD = "rounded-xl2 border border-line bg-panel";
-const SELECT = "px-2.5 py-1.5 rounded-lg border border-line bg-paper text-ui text-ink";
 const BTN_ACCENT_SM = "text-meta px-2.5 py-1 rounded-md bg-accent text-white disabled:opacity-50";
 
 export function InboxConfigure() {
@@ -194,14 +194,16 @@ function DmRouteCard() {
         <span className="text-muted shrink-0">
           <Icon name="chat" size={16} />
         </span>
-        <select className={"flex-1 " + SELECT} value={dm} onChange={(e) => choose(e.target.value)}>
-          <option value="">{tt("inbox.dm_no_session")}</option>
-          {real.map((s) => (
-            <option key={s.session_id} value={s.session_id}>
-              {s.title || s.session_id}
-            </option>
-          ))}
-        </select>
+        <SelectMenu
+          className="flex-1 min-w-0"
+          ariaLabel={tt("inbox.direct_messages")}
+          value={dm}
+          options={[
+            { value: "", label: tt("inbox.dm_no_session") },
+            ...real.map((s) => ({ value: s.session_id, label: s.title || s.session_id })),
+          ]}
+          onChange={(v) => void choose(v)}
+        />
       </div>
     </div>
   );
@@ -318,18 +320,16 @@ function SubscriptionsCard() {
       )}
 
       <div className="border-t border-line px-4 py-3 flex items-center gap-2 flex-wrap">
-        <select
-          className={SELECT}
+        <SelectMenu
+          className="min-w-[160px]"
+          ariaLabel={tt("inbox.choose_session")}
           value={addSession}
-          onChange={(e) => setAddSession(e.target.value)}
-        >
-          <option value="">{tt("inbox.choose_session")}</option>
-          {real.map((s) => (
-            <option key={s.session_id} value={s.session_id}>
-              {s.title || s.session_id}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: tt("inbox.choose_session") },
+            ...real.map((s) => ({ value: s.session_id, label: s.title || s.session_id })),
+          ]}
+          onChange={setAddSession}
+        />
         <ChannelPicker value={addChannel} onChange={setAddChannel} recent={recent} onSubmit={add} />
         <button className={BTN_ACCENT_SM} disabled={!addSession || !addChannel.trim()} onClick={add}>
           {tt("inbox.subscribe")}

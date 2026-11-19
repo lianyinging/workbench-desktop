@@ -21,6 +21,7 @@ import { formatTokens } from "../usage";
 import { listPersonaName } from "../personaScope";
 import { canonicalModels } from "../modelNames";
 import { formatDuration } from "./StepsPanel";
+import { SelectMenu } from "./SelectMenu";
 import {
   approverPart,
   changePct,
@@ -157,19 +158,20 @@ export function UsagePage({ onOpenTurn, onOpenPersona }: {
             </button>
           ))}
         </div>
-        <select
-          className="p3-select"
-          data-testid="usage-coworker"
-          aria-label={t("p3.usage.coworker_filter")}
+        <SelectMenu
+          testId="usage-coworker"
+          className="min-w-[160px]"
+          ariaLabel={t("p3.usage.coworker_filter")}
           value={persona || ""}
-          onChange={(e) => setPersona(e.target.value || null)}
-        >
-          <option value="">{t("p3.usage.all_coworkers")}</option>
-          {choices.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-          {persona && !choices.some((c) => c.id === persona) && <option value={persona}>{persona}</option>}
-        </select>
+          options={[
+            { value: "", label: t("p3.usage.all_coworkers") },
+            ...choices.map((c) => ({ value: c.id, label: c.name })),
+            ...(persona && !choices.some((c) => c.id === persona)
+              ? [{ value: persona, label: persona }]
+              : []),
+          ]}
+          onChange={(v) => setPersona(v || null)}
+        />
       </div>
       {error ? (
         <div className={CARD + " p-4 text-ui text-muted"}>{t("p3.usage.load_error")}</div>

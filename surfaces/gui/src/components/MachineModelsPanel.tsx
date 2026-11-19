@@ -15,6 +15,7 @@ import {
 import { profileHash, sealProfiles } from "../seal";
 import { Icon } from "./Icon";
 import { PanelHead } from "./IntegrationsView";
+import { SelectMenu } from "./SelectMenu";
 
 // Settings ▸ Models & Keys, scoped to a REMOTE machine (UX-046). Three parts:
 // what the machine itself reports as active (the same list the composer's
@@ -218,19 +219,17 @@ export function MachineModelsPanel({ machine }: { machine: Machine }) {
         <>
           {hasWallet() && walletProfiles.length > 0 && (
             <div className="flex items-center gap-2.5 mb-2.5">
-              <select
-                className="px-2.5 py-2 rounded-lg border border-line bg-paper text-meta text-ink outline-none"
+              <SelectMenu
+                testId="wallet-pick"
+                className="min-w-[180px]"
+                ariaLabel={t("machines.models.from_wallet")}
                 value={walletPick}
-                onChange={(e) => setWalletPick(e.target.value)}
-                data-testid="wallet-pick"
-              >
-                <option value="">{t("machines.models.from_wallet")}</option>
-                {walletProfiles.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: t("machines.models.from_wallet") },
+                  ...walletProfiles.map((p) => ({ value: p, label: p })),
+                ]}
+                onChange={setWalletPick}
+              />
               <button
                 className="px-3.5 py-2 rounded-lg bg-accent text-white text-ui font-medium disabled:opacity-50"
                 disabled={busy || !walletPick}
@@ -242,18 +241,16 @@ export function MachineModelsPanel({ machine }: { machine: Machine }) {
             </div>
           )}
           <div className="flex items-center gap-2.5">
-            <select
-              className="px-2.5 py-2 rounded-lg border border-line bg-paper text-meta text-ink outline-none"
+            <SelectMenu
+              className="min-w-[160px]"
+              ariaLabel={t("machines.keys.custom_profile")}
               value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-            >
-              {KEY_PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-              <option value="custom">{t("machines.keys.custom_profile")}</option>
-            </select>
+              options={[
+                ...KEY_PROVIDERS.map((p) => ({ value: p.id, label: p.label })),
+                { value: "custom", label: t("machines.keys.custom_profile") },
+              ]}
+              onChange={setProvider}
+            />
             {provider === "custom" && (
               <input
                 className="px-2.5 py-2 rounded-lg border border-line bg-paper font-mono text-meta text-ink outline-none w-40"

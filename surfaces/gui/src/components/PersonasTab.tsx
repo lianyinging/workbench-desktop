@@ -16,6 +16,7 @@ import { chooseFolder } from "../tauri";
 import type { SessionInfo } from "../types";
 import { Icon } from "./Icon";
 import { Toggle } from "./Toggle";
+import { SelectMenu } from "./SelectMenu";
 import { listPersonaName } from "../personaScope";
 
 // Personas management (UX-035): grouped General/Security lists with ONE toggle per row
@@ -310,15 +311,18 @@ export function PersonasTab({
       {showInstall && (
         <div className={CARD + " mt-1.5 p-4"}>
           <div className="flex items-center gap-2">
-            <select
-              className={SELECT}
+            <SelectMenu
+              className="w-40 shrink-0"
+              testId="persona-install-source"
+              ariaLabel={t("personas.install_coworker")}
               value={mode}
-              onChange={(e) => setMode(e.target.value as "git" | "dir" | "zip")}
-            >
-              <option value="git">{t("personas.mode_github")}</option>
-              {!machine && <option value="dir">{t("personas.mode_local")}</option>}
-              <option value="zip">{t("personas.mode_zip")}</option>
-            </select>
+              options={[
+                { value: "git", label: t("personas.mode_github") },
+                ...(!machine ? [{ value: "dir", label: t("personas.mode_local") }] : []),
+                { value: "zip", label: t("personas.mode_zip") },
+              ]}
+              onChange={(v) => setMode(v as "git" | "dir" | "zip")}
+            />
             {mode === "git" ? (
               <>
                 <input

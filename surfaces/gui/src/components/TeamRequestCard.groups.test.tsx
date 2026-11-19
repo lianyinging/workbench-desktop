@@ -50,7 +50,8 @@ describe("TeamRequestCard — roles with several workers", () => {
 
   it("sets one model for the whole role from the role line", () => {
     const { approve } = show("twelve-workers");
-    fireEvent.change(screen.getByTestId("teamreq-group-model-swe-worker"), { target: { value: SONNET } });
+    fireEvent.click(screen.getByTestId("teamreq-group-model-swe-worker"));
+    fireEvent.click(document.querySelector(`[role="option"][data-value="${SONNET}"]`)!);
     const members = approve();
     expect(members.filter((m) => m.persona === "swe-worker").map((m) => m.model)).toEqual(Array(6).fill(SONNET));
     expect(members.filter((m) => m.persona === "review-worker").every((m) => m.model === OPUS)).toBe(true);
@@ -58,7 +59,7 @@ describe("TeamRequestCard — roles with several workers", () => {
 
   it("says when a role is mixed, and one click makes it uniform", () => {
     const { approve } = show("mixed-within-a-role");
-    expect((screen.getByTestId("teamreq-group-model-swe-worker") as HTMLSelectElement).value).toBe("__mixed__");
+    expect(screen.getByTestId("teamreq-group-model-swe-worker").getAttribute("data-value")).toBe("__mixed__");
     expect(screen.getByTestId("teamreq-group-tally-swe-worker").textContent).toBe(
       "4 on Claude Opus 4.8, 2 on Claude Sonnet 4.8",
     );
@@ -84,7 +85,8 @@ describe("TeamRequestCard — roles with several workers", () => {
     const { approve } = show("twelve-workers");
     fireEvent.click(screen.getByTestId("teamreq-group-toggle-swe-worker"));
     expect(screen.getByTestId("teamreq-group-members-swe-worker").children).toHaveLength(6);
-    fireEvent.change(screen.getByTestId("teamreq-model-2"), { target: { value: SONNET } });
+    fireEvent.click(screen.getByTestId("teamreq-model-2"));
+    fireEvent.click(document.querySelector(`[role="option"][data-value="${SONNET}"]`)!);
     fireEvent.click(screen.getByTestId("teamreq-connector-2-github"));
     expect(screen.getByTestId("teamreq-group-tally-swe-worker").textContent).toBe(
       "5 on Claude Opus 4.8, 1 on Claude Sonnet 4.8",

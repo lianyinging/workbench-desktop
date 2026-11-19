@@ -126,10 +126,12 @@ test("Settings ▸ Slack: holders, default machine, People, subscribed channels;
   const picker = scope.getByTestId("glance-machine-T1");
   // This Mac holds Slack too (the fixture's local relay), and held it first: preselected.
   await expect(glance.getByTestId("glance-holders")).toContainText("This Mac");
-  await expect(picker).toHaveValue("desktop");
-  await picker.selectOption("mA");
+  await expect(picker).toHaveAttribute("data-value", "desktop");
+  await picker.click();
+  await page.locator(`[role="option"][data-value="mA"]`).click();
   await expect.poll(() => calls.find((c) => c.path.endsWith("/routing"))?.body).toEqual({ scope: "T1", machine_id: "mA" });
-  await scope.getByTestId("glance-coworker-T1").selectOption("");
+  await scope.getByTestId("glance-coworker-T1").click();
+  await page.locator(`[role="option"][data-value=""]`).click();
   // Subscribed channels across machines; the orphan offers Remove.
   await expect(page.getByTestId("glance-sub-slack:T1/C1")).toContainText("#C1");
   await expect(page.getByTestId("glance-sub-slack:T1/C1")).toContainText("cloud-vm");
@@ -212,11 +214,14 @@ test("Settings ▸ GitHub: the default row, a configuration row, Add with a new 
   await dlg.getByTestId("cfg-repo-input").fill("acme/site");
   await dlg.getByTestId("cfg-repo-input").press("Enter");
   await expect(dlg.getByTestId("cfg-repo-acme/site")).toBeVisible();
-  await dlg.getByTestId("cfg-event").selectOption("pr_open");
+  await dlg.getByTestId("cfg-event").click();
+  await page.locator(`[role="option"][data-value="pr_open"]`).click();
   await dlg.getByTestId("cfg-who-input").fill("nia");
   await dlg.getByTestId("cfg-who-input").press("Enter");
-  await dlg.getByTestId("cfg-machine").selectOption("desktop");
-  await dlg.getByTestId("cfg-coworker").selectOption("security");
+  await dlg.getByTestId("cfg-machine").click();
+  await page.locator(`[role="option"][data-value="desktop"]`).click();
+  await dlg.getByTestId("cfg-coworker").click();
+  await page.locator(`[role="option"][data-value="security"]`).click();
   // The coworker's own models list is offered; the Ollama one is marked not here.
   await expect(dlg.getByTestId("cfg-model-ollama:qwen3-coder:30b")).toContainText("not here");
   await dlg.getByTestId("cfg-base-dir").fill("~/work");
@@ -224,9 +229,10 @@ test("Settings ▸ GitHub: the default row, a configuration row, Add with a new 
   await expect(dlg).toContainText("no checkout is created automatically");
   // Spec §11.5: Approval mode defaults to Auto-approve and approvals go to the Inbox;
   // both are the user's to change here.
-  await expect(dlg.getByTestId("cfg-approval-mode")).toHaveValue("auto-approve");
+  await expect(dlg.getByTestId("cfg-approval-mode")).toHaveAttribute("data-value", "auto-approve");
   await expect(dlg.getByTestId("cfg-unattended")).toBeChecked();
-  await dlg.getByTestId("cfg-approval-mode").selectOption("interactive");
+  await dlg.getByTestId("cfg-approval-mode").click();
+  await page.locator(`[role="option"][data-value="interactive"]`).click();
   await dlg.getByTestId("cfg-unattended").uncheck();
   await dlg.getByTestId("cfg-save").click();
   await expect.poll(() => calls.find((c) => c.method === "POST")?.body).toMatchObject({
@@ -251,7 +257,8 @@ test("Settings ▸ GitHub: Existing session uses the grouped picker; a broker co
   const dlg = page.getByTestId("cfg-dialog");
   await dlg.getByTestId("cfg-repo-input").fill("acme/site");
   await dlg.getByTestId("cfg-repo-input").press("Enter");
-  await dlg.getByTestId("cfg-event").selectOption("pr_merge");
+  await dlg.getByTestId("cfg-event").click();
+  await page.locator(`[role="option"][data-value="pr_merge"]`).click();
   await dlg.getByTestId("cfg-target-existing").check();
   // This Mac's pinned session is listed under its machine group, pinned first.
   await dlg.getByTestId("cfg-session-search").fill("launch");

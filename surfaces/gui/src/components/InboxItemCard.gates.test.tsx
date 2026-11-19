@@ -157,7 +157,8 @@ describe("InboxItemCard — gates parked in the Inbox", () => {
       />,
     );
     expect(screen.getByTestId("teamreq-model-warn-1")).toBeTruthy();
-    fireEvent.change(screen.getByTestId("teamreq-model-1"), { target: { value: "ollama:qwen3" } });
+    fireEvent.click(screen.getByTestId("teamreq-model-1"));
+    fireEvent.click(document.querySelector('[role="option"][data-value="ollama:qwen3"]')!);
     fireEvent.click(screen.getByTestId("teamreq-approve"));
     const parsed = JSON.parse(onResolve.mock.calls[0][1]);
     expect(parsed.members).toEqual([

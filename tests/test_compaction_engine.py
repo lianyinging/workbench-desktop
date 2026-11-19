@@ -245,6 +245,32 @@ def test_set_compaction_settings_validates_and_round_trips(tmp_path):
     assert payload["compaction_model"] == "gpt-4o-mini"
 
 
+def test_set_max_iterations_validates_and_applies_live(tmp_path):
+    from coworker.server.manager import SessionManager
+
+    class Provider(ProviderClient):
+        def complete(self, *, model, messages, tools=None, **settings):
+            return AssistantTurn(text="hi", finish_reason="stop")
+
+        def capabilities(self, model):
+            return ModelCapabilities()
+
+    mgr = SessionManager(workspace=tmp_path, provider=Provider())
+    assert mgr.max_iterations() == mgr.DEFAULT_MAX_ITERATIONS
+    engine = mgr.get_engine("iter-limit", agent="cowork", workspace=str(tmp_path))
+    assert engine.max_iterations == mgr.DEFAULT_MAX_ITERATIONS
+
+    out = mgr.set_max_iterations(200)
+    assert out == {"ok": True, "max_iterations": 200}
+    assert mgr.max_iterations() == 200
+    assert engine.max_iterations == 200  # already-built engines update live
+    assert mgr.get_settings()["max_iterations"] == 200
+
+    assert mgr.set_max_iterations("nope")["ok"] is False
+    assert mgr.set_max_iterations(0)["max_iterations"] == 1
+    assert mgr.set_max_iterations(9999)["max_iterations"] == 1000
+
+
 def test_compaction_state_survives_save_and_rebuild(tmp_path):
     from coworker.compaction import CompactionState
     from coworker.server.manager import SessionManager

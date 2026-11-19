@@ -15,6 +15,7 @@ import {
 } from "../api";
 import { beginWindowDrag, WINDOW_DRAG_CLASS } from "../windowDrag";
 import { Icon } from "./Icon";
+import { SelectMenu } from "./SelectMenu";
 import { AutomationQuickstart } from "./AutomationQuickstart";
 import { formatTokens } from "../usage";
 import { formatDuration } from "./StepsPanel";
@@ -339,15 +340,17 @@ function NewAutomationForm({
         </label>
         <label className="tmpl-field">
           <span>{t("automations.repeat")}</span>
-          <select
-            className="tmpl-input tmpl-select"
+          <SelectMenu
+            className="min-w-[140px]"
+            ariaLabel={t("automations.repeat")}
             value={freq}
-            onChange={(e) => setFreq(e.target.value)}
-          >
-            <option value="daily">{t("automations.freq_daily")}</option>
-            <option value="weekdays">{t("automations.freq_weekdays")}</option>
-            <option value="weekends">{t("automations.freq_weekends")}</option>
-          </select>
+            options={[
+              { value: "daily", label: t("automations.freq_daily") },
+              { value: "weekdays", label: t("automations.freq_weekdays") },
+              { value: "weekends", label: t("automations.freq_weekends") },
+            ]}
+            onChange={setFreq}
+          />
         </label>
       </div>
       <div className="tmpl-form-actions">
@@ -574,11 +577,17 @@ function TaskDetail({
                 </label>
                 <label className="tmpl-field">
                   <span>{tt("automations.repeat")}</span>
-                  <select className="tmpl-input tmpl-select" value={freq} onChange={(e) => setFreq(e.target.value)}>
-                    <option value="daily">{tt("automations.freq_daily")}</option>
-                    <option value="weekdays">{tt("automations.freq_weekdays")}</option>
-                    <option value="weekends">{tt("automations.freq_weekends")}</option>
-                  </select>
+                  <SelectMenu
+                    className="min-w-[140px]"
+                    ariaLabel={tt("automations.repeat")}
+                    value={freq}
+                    options={[
+                      { value: "daily", label: tt("automations.freq_daily") },
+                      { value: "weekdays", label: tt("automations.freq_weekdays") },
+                      { value: "weekends", label: tt("automations.freq_weekends") },
+                    ]}
+                    onChange={setFreq}
+                  />
                 </label>
               </div>
             ) : (

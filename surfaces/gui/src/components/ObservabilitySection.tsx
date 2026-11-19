@@ -21,6 +21,7 @@ import {
 } from "../api";
 import { Toggle } from "./Toggle";
 import { PanelHead } from "./IntegrationsView";
+import { SelectMenu } from "./SelectMenu";
 
 const CARD = "rounded-xl2 border border-line bg-panel";
 const SEC = "text-meta font-medium text-muted mt-6 mb-2";
@@ -393,19 +394,20 @@ export function ObservabilitySection({ machine }: { machine?: Machine | null }) 
             <div className={ROW_SUB}>{t("obs.file.sub")}</div>
             {saving ? (
               <div className="flex items-center gap-2 mt-2.5">
-                <select
-                  className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg border border-line bg-paper text-ui text-ink"
+                <SelectMenu
+                  className="flex-1 min-w-0"
+                  ariaLabel={t("obs.file.pick")}
                   value={saving.pick}
-                  aria-label={t("obs.file.pick")}
-                  onChange={(e) => setSaving({ ...saving, pick: e.target.value })}
-                >
-                  {saving.sessions.length === 0 ? <option value="">{t("obs.file.none")}</option> : null}
-                  {saving.sessions.map((s) => (
-                    <option key={s.session_id} value={s.session_id}>
-                      {s.title || s.session_id}
-                    </option>
-                  ))}
-                </select>
+                  options={
+                    saving.sessions.length === 0
+                      ? [{ value: "", label: t("obs.file.none") }]
+                      : saving.sessions.map((s) => ({
+                          value: s.session_id,
+                          label: s.title || s.session_id,
+                        }))
+                  }
+                  onChange={(v) => setSaving({ ...saving, pick: v })}
+                />
                 <button
                   type="button"
                   className={BTN_SMALL}

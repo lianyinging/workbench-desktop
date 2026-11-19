@@ -287,7 +287,7 @@ test("the staffing card carries connector checkboxes and states that approvals f
 test("the staffing card picks each worker's model and warns on a fallback", async ({ page }) => {
   await proposeTeam(page);
   const card = page.getByTestId("teamreq-card");
-  await expect(card.getByTestId("teamreq-model-0")).toHaveValue("anthropic:claude-opus-4-8");
+  await expect(card.getByTestId("teamreq-model-0")).toHaveAttribute("data-value", "anthropic:claude-opus-4-8");
   await expect(card.getByTestId("teamreq-model-warn-0")).toHaveCount(0);
   const warn = card.getByTestId("teamreq-model-warn-2");
   await expect(warn).toBeVisible();
@@ -297,10 +297,12 @@ test("the staffing card picks each worker's model and warns on a fallback", asyn
   const code = await who.locator("code").boundingBox();
   const pick = await card.getByTestId("teamreq-model-2").boundingBox();
   expect(Math.abs((code!.y + code!.height / 2) - (pick!.y + pick!.height / 2))).toBeLessThan(6);
-  await card.getByTestId("teamreq-model-2").selectOption("anthropic:claude-haiku-4-8");
+  await card.getByTestId("teamreq-model-2").click();
+  await page.locator(`[role="option"][data-value="anthropic:claude-haiku-4-8"]`).click();
   await expect(card.getByTestId("teamreq-model-warn-2")).toHaveCount(0);
   // a pick outside the worker's recommended models is noted, quietly
-  await card.getByTestId("teamreq-model-1").selectOption("anthropic:claude-opus-4-8");
+  await card.getByTestId("teamreq-model-1").click();
+  await page.locator(`[role="option"][data-value="anthropic:claude-opus-4-8"]`).click();
   await expect(card.getByTestId("teamreq-model-note-1")).toHaveText(
     "Not one of this worker's recommended models.",
   );

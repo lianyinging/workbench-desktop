@@ -992,6 +992,9 @@ class SessionManager:
             model=model,
             mode=mode,
             provider=self.provider,
+            # Settings → Context optimization: prefs override config.toml; live via
+            # set_max_iterations() on already-built engines.
+            max_iterations=self.max_iterations(),
             # The model's saved settings (or its maker's recommendation): longest reply,
             # sampling, thinking. Read at build time.
             model_settings=_model_config.model_settings_for(model),
@@ -5559,6 +5562,7 @@ class SessionManager:
             "secrets_path": str(self.secrets.path),
             **self.pdf_settings(),
             **self.compaction_settings_payload(),
+            "max_iterations": self.max_iterations(),
             # Per-model settings the user saved (model_config.py), keyed by model id.
             "model_config": _model_config.load(),
         }
@@ -5793,6 +5797,44 @@ class SessionManager:
             "pdf_max_pages": max(1, min(pages, 100)),
             "pdf_max_mb": max(1, min(mb, 10)),
         }
+
+    # Per-turn model↔tool loop ceiling (Settings → Context optimization). Engines read
+    # `engine.max_iterations` each iteration, so a Settings change applies mid-session.
+    DEFAULT_MAX_ITERATIONS = 150
+    MAX_ITERATIONS_FLOOR = 1
+    MAX_ITERATIONS_CEILING = 1000
+
+    def max_iterations(self) -> int:
+        """Effective per-turn step limit: prefs override, else config.toml, else 150."""
+        if "max_iterations" in self._prefs:
+            try:
+                return max(
+                    self.MAX_ITERATIONS_FLOOR,
+                    min(int(self._prefs["max_iterations"]), self.MAX_ITERATIONS_CEILING),
+                )
+            except (TypeError, ValueError):
+                return self.DEFAULT_MAX_ITERATIONS
+        try:
+            from ..config import load_config
+
+            return int(load_config().max_iterations)
+        except Exception:
+            return self.DEFAULT_MAX_ITERATIONS
+
+    def set_max_iterations(self, value: Any) -> dict[str, Any]:
+        """Persist the per-turn step limit and push it onto already-built engines."""
+        try:
+            n = max(
+                self.MAX_ITERATIONS_FLOOR,
+                min(int(value), self.MAX_ITERATIONS_CEILING),
+            )
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "max_iterations must be a number"}
+        self._prefs["max_iterations"] = n
+        self._save_prefs()
+        for engine in self._engines.values():
+            engine.max_iterations = n
+        return {"ok": True, "max_iterations": n}
 
     def compaction_settings(self) -> dict[str, Any]:
         """The live auto-compaction knobs (OPE-27) — read by every engine per check, so a
@@ -8165,6 +8207,7 @@ class SessionManager:
             workspace=task.workspace,
             model=task_model,
             mode=Mode.INTERACTIVE,
+            max_iterations=self.max_iterations(),
             model_settings=_model_config.model_settings_for(task_model),
             approver=self._scheduled_approver(task, session_id),
             provider=self.provider,

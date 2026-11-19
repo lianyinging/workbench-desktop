@@ -17,6 +17,7 @@ import {
   type ModelSettings,
   type ProviderInfo,
 } from "../../api";
+import { SelectMenu } from "../SelectMenu";
 import { fmtBytes, fmtContext } from "./LocalModels";
 import { providerConnected, providerKind } from "./ProviderGroups";
 
@@ -201,16 +202,14 @@ export function PickModelDialog({
     </div>
   );
   const select = (key: string, value: string, options: { v: string; label: string }[], onPick: (v: string) => void) => (
-    <select
-      className="rounded-lg border border-line bg-panel px-2 py-1.5 text-ui outline-none"
+    <SelectMenu
+      className="min-w-0"
+      testId={`pick-${key}`}
+      ariaLabel={key}
       value={value}
-      onChange={(e) => onPick(e.target.value)}
-      data-testid={`pick-${key}`}
-    >
-      {options.map((o) => (
-        <option key={o.v} value={o.v}>{o.label}</option>
-      ))}
-    </select>
+      options={options.map((o) => ({ value: o.v, label: o.label }))}
+      onChange={onPick}
+    />
   );
   const setting = (key: string, label: string, control: JSX.Element, note: string) => (
     <div className="grid grid-cols-[110px_150px_1fr] items-center gap-3 py-1.5 text-ui" key={key}>

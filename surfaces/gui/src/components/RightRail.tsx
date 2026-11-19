@@ -33,6 +33,7 @@ import type { WorkerFilter } from "../teamRoster";
 import { Icon } from "./Icon";
 import type { SessionUsage } from "../types";
 import { Markdown, OPEN_ARTIFACT_EVENT } from "./Markdown";
+import { localizeServerNotice } from "../localizeServerNotice";
 // (ContextInfo/SessionUsage power the Context section; see RailContext.tsx.)
 
 type Panel = "context" | "progress" | "trace" | "agents" | "artifacts" | "board" | "journal" | "team" | "files";
@@ -937,7 +938,7 @@ function ArtifactViewer({
         {!content ? (
           <div className="rail-muted">{t("rail.loading")}</div>
         ) : content.error ? (
-          <div className="rail-error">{content.error}</div>
+          <div className="rail-error">{localizeServerNotice(content.error)}</div>
         ) : content.kind === "html" ? (
           <iframe
             key={`${artifact.path}-${reloadKey}`}

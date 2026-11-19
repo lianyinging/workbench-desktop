@@ -26,10 +26,11 @@ describe("WorktreesCard", () => {
     const api = await import("../api");
     render(<SettingsView initialTab="appearance" />);
     const card = await screen.findByTestId("worktrees-card");
-    expect((card.querySelector('[data-testid="worktree-location"]') as HTMLSelectElement).value).toBe("sibling");
+    expect(card.querySelector('[data-testid="worktree-location"]')!.getAttribute("data-value")).toBe("sibling");
     expect(card.textContent).toContain("Feature worktrees");
 
-    fireEvent.change(card.querySelector('[data-testid="worktree-location"]')!, { target: { value: "in_repo" } });
+    fireEvent.click(card.querySelector('[data-testid="worktree-location"]')!);
+    fireEvent.click(document.querySelector('[role="option"][data-value="in_repo"]')!);
     fireEvent.click(screen.getByTestId("worktrees-save"));
     await waitFor(() => expect(api.setWorktreeSettings).toHaveBeenCalled());
     const sent = (api.setWorktreeSettings as any).mock.calls[0][0];

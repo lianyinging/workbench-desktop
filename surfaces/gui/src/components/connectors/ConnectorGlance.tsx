@@ -32,6 +32,7 @@ import {
   type Subscription,
 } from "../../api";
 import { ConnectorBadge } from "../../connectors/ConnectorIcon";
+import { SelectMenu } from "../SelectMenu";
 import { AddConnectionModal } from "./AddConnectionModal";
 import { ConfigurationsSection, type MachineRef } from "./ConfigurationsSection";
 import { SlackHowItWorks } from "./SlackHowItWorks";
@@ -304,34 +305,32 @@ export function ConnectorGlance({
               {conn && holderIds.length > 0 && (
                 <div className={ROW} data-testid={`glance-routing-${scope.id}`}>
                   <span className={LABEL}>{t("connglance.mentions_go_to")}</span>
-                  <select
-                    className="text-ui px-2 py-1 rounded-lg border border-line bg-paper text-ink outline-none"
+                  <SelectMenu
+                    className="min-w-[120px]"
+                    testId={`glance-machine-${scope.id}`}
+                    ariaLabel={t("connconfig.label_machine")}
                     value={routing.machine_id}
-                    onChange={(e) => void setRouting(scope.id, e.target.value)}
-                    data-testid={`glance-machine-${scope.id}`}
-                    aria-label={t("connconfig.label_machine")}
-                  >
-                    {holderIds.map((id) => (
-                      <option key={id} value={id}>
-                        {glyph(machineOf(id), id)} {nameOf(id)}
-                      </option>
-                    ))}
-                  </select>
+                    options={holderIds.map((id) => ({
+                      value: id,
+                      label: `${glyph(machineOf(id), id)} ${nameOf(id)}`,
+                    }))}
+                    onChange={(v) => void setRouting(scope.id, v)}
+                  />
                   <span className="text-meta text-muted">·</span>
-                  <select
-                    className="text-ui px-2 py-1 rounded-lg border border-line bg-paper text-ink outline-none max-w-[200px]"
+                  <SelectMenu
+                    className="max-w-[200px] min-w-[120px]"
+                    testId={`glance-coworker-${scope.id}`}
+                    ariaLabel={t("connconfig.label_coworker")}
                     value={missing ? "" : routing.persona}
-                    onChange={(e) => void setRouting(scope.id, "", e.target.value)}
-                    data-testid={`glance-coworker-${scope.id}`}
-                    aria-label={t("connconfig.label_coworker")}
-                  >
-                    <option value="">{t("connconfig.default_coworker")}</option>
-                    {list.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.icon ? `${p.icon} ` : ""}{p.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { value: "", label: t("connconfig.default_coworker") },
+                      ...list.map((p) => ({
+                        value: p.id,
+                        label: `${p.icon ? `${p.icon} ` : ""}${p.name}`,
+                      })),
+                    ]}
+                    onChange={(v) => void setRouting(scope.id, "", v)}
+                  />
                   <span className="text-meta text-muted">
                     {missing
                       ? t("connglance.coworker_missing", { coworker: routing.persona, machine: nameOf(routing.machine_id) })

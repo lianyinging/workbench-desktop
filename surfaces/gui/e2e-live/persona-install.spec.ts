@@ -27,7 +27,8 @@ test("live: install a persona from a directory, enable it, and run a task as it"
   await expect(page.getByText("Add personas")).toBeVisible();
 
   // Install from the local directory bundle.
-  await page.getByRole("combobox").selectOption("dir");
+  await page.getByTestId("persona-install-source").click();
+  await page.locator(`[role="option"][data-value="dir"]`).click();
   await page.getByPlaceholder("/path/to/personas").fill(FIXTURE_DIR);
   await page.getByRole("button", { name: "Install" }).click();
   await expect(page.getByText(/Installed \d+ persona/)).toBeVisible({ timeout: 30_000 });

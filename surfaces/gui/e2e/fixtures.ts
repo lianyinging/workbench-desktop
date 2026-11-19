@@ -56,6 +56,7 @@ const SETTINGS = {
   pdf_fallback: "text",
   pdf_max_pages: 2,
   pdf_max_mb: 10,
+  max_iterations: 150,
   // Curated-matrix display names (subset — mirrors /v1/settings.model_labels).
   model_labels: {
     "anthropic:claude-opus-4-8": "Claude Opus 4.8 · Anthropic",
@@ -1659,6 +1660,13 @@ export async function mockApi(page: import("@playwright/test").Page) {
         pdf_max_pages: SETTINGS.pdf_max_pages,
         pdf_max_mb: SETTINGS.pdf_max_mb,
       });
+    }
+    if (p.endsWith("/v1/settings/max-iterations") && m === "POST") {
+      const n = Number(req.postDataJSON()?.max_iterations);
+      SETTINGS.max_iterations = Number.isFinite(n)
+        ? Math.max(1, Math.min(n, 1000))
+        : SETTINGS.max_iterations;
+      return json({ ok: true, max_iterations: SETTINGS.max_iterations });
     }
     if (p.endsWith("/v1/attachments/inspect-pdf") && m === "POST") {
       // Page count for the composer threshold check: the tests encode it in the PDF body

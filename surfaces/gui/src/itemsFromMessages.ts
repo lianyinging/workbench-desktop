@@ -6,6 +6,7 @@
 // generalizes to any connector via the registry — no Slack special-casing here.
 
 import type { ConversationMessage } from "./api";
+import { localizeServerNotice } from "./localizeServerNotice";
 import type { Attachment, Item } from "./types";
 
 export function itemsFromMessages(messages: ConversationMessage[]): Item[] {
@@ -116,12 +117,16 @@ export function itemsFromMessages(messages: ConversationMessage[]): Item[] {
       // the Transcript only offers the button when it's the transcript tail.
       items.push(
         m.kind === "interrupted"
-          ? { kind: "notice", tone: "warn", text: "Interrupted." }
+          ? { kind: "notice", tone: "warn", text: localizeServerNotice("Interrupted.") }
           : m.kind === "model_switch"
-            ? { kind: "notice", tone: "info", text: m.text || "Model switched" }
+            ? { kind: "notice", tone: "info", text: localizeServerNotice(m.text || "Model switched") }
             : m.kind === "compacted"
               ? // The subtle "compacted here" divider (OPE-27) — the transcript itself is intact.
-                { kind: "notice", tone: "info", text: m.text || "Context compacted" }
+                {
+                  kind: "notice",
+                  tone: "info",
+                  text: localizeServerNotice(m.text || "Context compacted", "app.notice.context_compacted"),
+                }
               : m.kind === "mcp_error"
                 ? // A configured MCP server failed to start for this session — informational,
                   // NOT retriable (retry re-runs the model turn, which can't fix a dead server).
@@ -136,12 +141,30 @@ export function itemsFromMessages(messages: ConversationMessage[]): Item[] {
                     { kind: "notice", tone: "info", text: m.text || "" }
                   : m.kind === "reviewer_paused"
                     ? // §8.4 breaker: auto-approve paused itself for the rest of the turn.
-                      { kind: "notice", tone: "info", text: m.text || "Auto-approve paused for the rest of this turn." }
+                      {
+                        kind: "notice",
+                        tone: "info",
+                        text: localizeServerNotice(
+                          m.text || "Auto-approve paused for the rest of this turn.",
+                        ),
+                      }
                     : m.kind === "mode_notice"
                       ? // The once-per-session Auto-Approve explainer, in place forever.
-                        { kind: "notice", tone: "info", title: (m as any).title || "Auto-approve is on.", text: m.text || "" }
+                        {
+                          kind: "notice",
+                          tone: "info",
+                          title: localizeServerNotice(
+                            (m as any).title || "Auto-approve is on.",
+                            "app.notice.mode_auto_approve_on",
+                          ),
+                          text: localizeServerNotice(m.text || ""),
+                        }
                       : m.kind === "mode_switch"
-                        ? { kind: "notice", tone: "info", text: m.text || "" }
+                        ? {
+                            kind: "notice",
+                            tone: "info",
+                            text: localizeServerNotice(m.text || ""),
+                          }
                   : m.kind === "truncated"
                           ? // OPE-171: the turn stopped after repeated output-limit cut-offs with no
                             // action. Retriable like an error: a fresh attempt usually acts.

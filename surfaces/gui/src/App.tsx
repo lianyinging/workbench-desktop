@@ -74,6 +74,7 @@ import {
 import { fullPersonaName, isProjectScoped } from "./personaScope";
 import { baseName } from "./paths";
 import { itemsFromMessages } from "./itemsFromMessages";
+import { localizeServerNotice } from "./localizeServerNotice";
 import { addTurnUsage, emptyUsage, teamUsage, usageFromMessages } from "./usage";
 import { canonicalModel, canonicalModels, coworkerModels } from "./modelNames";
 import { streamMode } from "./streamGate";
@@ -1163,9 +1164,17 @@ export function App() {
           if (["interactive", "auto-approve", "bypass-approvals", "plan", "discuss", "custom"].includes(d.mode)) setMode(d.mode);
           // Server-authored + persisted (owner ruling 2026-08-24): the Auto-Approve
           // explainer once per session ever, one-line markers for later switches.
+          // Wire copy stays English; localize at the edge for the active UI language.
           setItems((p) => [
             ...p,
-            { kind: "notice", tone: "info", ...(d.title ? { title: d.title } : {}), text: d.text || "" },
+            {
+              kind: "notice",
+              tone: "info",
+              ...(d.title
+                ? { title: localizeServerNotice(d.title, "app.notice.mode_auto_approve_on") }
+                : {}),
+              text: localizeServerNotice(d.text || ""),
+            },
           ]);
           break;
         case "model_changed":
@@ -1203,8 +1212,16 @@ export function App() {
           break;
         case "compacted":
           // Auto-compaction marker (OPE-27): outbound-only — the transcript stays intact,
-          // this divider just shows where the model's memory was summarized.
-          setItems((p) => [...p, { kind: "notice", tone: "info", text: d.text || t("app.notice.context_compacted") }]);
+          // this divider just shows where the model's memory was summarized. Server text
+          // is English; localize known phrases for the UI language.
+          setItems((p) => [
+            ...p,
+            {
+              kind: "notice",
+              tone: "info",
+              text: localizeServerNotice(d.text, "app.notice.context_compacted_detail"),
+            },
+          ]);
           break;
         case "interrupted":
           flushPartialStream();
@@ -1221,7 +1238,11 @@ export function App() {
         case "input_rejected":
           setItems((p) => [
             ...p,
-            { kind: "notice", tone: "warn", text: d.error || t("app.notice.input_rejected") },
+            {
+              kind: "notice",
+              tone: "warn",
+              text: localizeServerNotice(d.error, "app.notice.input_rejected"),
+            },
           ]);
           break;
         case "step":

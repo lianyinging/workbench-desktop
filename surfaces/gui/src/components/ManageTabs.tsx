@@ -25,6 +25,7 @@ import {
 } from "../api";
 import { CloudSignInInline, CloudStatusPending } from "./connectors/CloudSignIn";
 import { Icon } from "./Icon";
+import { SelectMenu } from "./SelectMenu";
 import { ModelChecklist } from "./ModelChecklist";
 import { LlamaCppPage } from "./models/LlamaCppSetup";
 import { LocalModelsTable, YourSystem } from "./models/LocalModels";
@@ -817,19 +818,17 @@ export function TelegramApprovalOwnersBlock({ c, onChanged }: { c: Connector; on
         ))}
         {candidates.length > 0 && (
           <span className="inline-flex items-center gap-1">
-            <select
-              className="text-meta bg-paper border border-line rounded-md px-1.5 py-0.5"
+            <SelectMenu
+              testId="telegram-approval-owner-pick"
+              className="min-w-[140px]"
+              ariaLabel={t("manage.approval_owners_pick")}
               value={pick}
-              onChange={(e) => setPick(e.target.value)}
-              data-testid="telegram-approval-owner-pick"
-            >
-              <option value="">{t("manage.approval_owners_pick")}</option>
-              {candidates.map((u) => (
-                <option key={u} value={u}>
-                  {label(u)}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: t("manage.approval_owners_pick") },
+                ...candidates.map((u) => ({ value: u, label: label(u) })),
+              ]}
+              onChange={setPick}
+            />
             <button
               className="text-meta px-2 py-0.5 rounded-md bg-accent text-white disabled:opacity-50"
               disabled={!pick}

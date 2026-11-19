@@ -44,9 +44,8 @@ function addTyped(id: string) {
 describe("ModelChecklist add-model family dropdown", () => {
   it("folds the selected vertex family into the id", async () => {
     renderList("vertex");
-    fireEvent.change(screen.getByTestId("mlist-family"), {
-      target: { value: "openweight" },
-    });
+    fireEvent.click(screen.getByTestId("mlist-family"));
+    fireEvent.click(document.querySelector('[role="option"][data-value="openweight"]')!);
     addTyped("meta/llama-4-maverick-17b-128e-instruct-maas");
     expect(addModel).toHaveBeenCalledWith(
       "vertex:openweight/meta/llama-4-maverick-17b-128e-instruct-maas",

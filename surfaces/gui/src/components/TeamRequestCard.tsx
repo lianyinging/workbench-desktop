@@ -27,6 +27,7 @@ import type { Item } from "../types";
 import { modeLabel } from "./Composer";
 import { connectorLabel } from "./ConnectorRequestCard";
 import { Icon } from "./Icon";
+import { SelectMenu, type SelectMenuOption } from "./SelectMenu";
 import { modelHover, modelName } from "../modelNames";
 import { ProposalActions } from "./ProposalParts";
 
@@ -221,40 +222,23 @@ export function TeamRequestCard({
       {reason && <span className="teamreq-connector-reason">{reason}</span>}
     </label>
   );
-  const modelOptions = (persona: string, current: string) => {
+  const modelOptions = (persona: string, current: string): SelectMenuOption[] => {
     const recommended = runnable ? recommendedFor(persona) : [];
     const others = (runnable ?? [])
       .map((r) => r.id)
       .filter((id) => !recommended.includes(id));
-    return (
-      <>
-        {current !== MIXED &&
-          !recommended.includes(current) &&
-          !others.includes(current) && (
-            <option value={current}>
-              {current ? modelLabelOf(current) : t("team.default_model")}
-            </option>
-          )}
-        {recommended.length > 0 && (
-          <optgroup label={t("team.models_recommended")}>
-            {recommended.map((id) => (
-              <option key={id} value={id}>
-                {modelLabelOf(id)}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        {others.length > 0 && (
-          <optgroup label={t("team.models_on_machine")}>
-            {others.map((id) => (
-              <option key={id} value={id}>
-                {modelLabelOf(id)}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </>
-    );
+    const out: SelectMenuOption[] = [];
+    if (current !== MIXED && !recommended.includes(current) && !others.includes(current)) {
+      out.push({
+        value: current,
+        label: current ? modelLabelOf(current) : t("team.default_model"),
+      });
+    }
+    const recLabel = t("team.models_recommended");
+    for (const id of recommended) out.push({ value: id, label: modelLabelOf(id), group: recLabel });
+    const otherLabel = t("team.models_on_machine");
+    for (const id of others) out.push({ value: id, label: modelLabelOf(id), group: otherLabel });
+    return out;
   };
   const warningOf = (i: number) => {
     const m = item.members[i];
@@ -289,20 +273,17 @@ export function TeamRequestCard({
               <>
                 <span className="teamreq-model"> · </span>
                 <span className="teamreq-model-pick">
-                  <select
+                  <SelectMenu
                     className="teamreq-model-select"
-                    data-testid={`teamreq-model-${i}`}
-                    aria-label={t("team.model_for", {
+                    testId={`teamreq-model-${i}`}
+                    ariaLabel={t("team.model_for", {
                       who: m.name || m.persona,
                     })}
                     title={modelHover(current, labels)}
                     value={current}
-                    onChange={(e) =>
-                      setPicked((cur) => ({ ...cur, [i]: e.target.value }))
-                    }
-                  >
-                    {modelOptions(m.persona, current)}
-                  </select>
+                    options={modelOptions(m.persona, current)}
+                    onChange={(v) => setPicked((cur) => ({ ...cur, [i]: v }))}
+                  />
                 </span>
                 {warn && (
                   <span
@@ -530,30 +511,26 @@ export function TeamRequestCard({
                 <>
                   <span className="teamreq-model">·</span>
                   <span className="teamreq-model-pick">
-                    <select
+                    <SelectMenu
                       className="teamreq-model-select"
-                      data-testid={`teamreq-group-model-${persona}`}
-                      aria-label={t("team.model_for_role", { n, persona })}
-                      title={
-                        uniform ? modelHover(models[0], labels) : tallyText
-                      }
+                      testId={`teamreq-group-model-${persona}`}
+                      ariaLabel={t("team.model_for_role", { n, persona })}
+                      title={uniform ? modelHover(models[0], labels) : tallyText}
                       value={uniform ? models[0] : MIXED}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v !== MIXED)
-                          setPicked((cur) => ({
-                            ...cur,
-                            ...Object.fromEntries(idxs.map((i) => [i, v])),
-                          }));
+                      options={[
+                        ...(!uniform
+                          ? [{ value: MIXED, label: t("team.mixed_models", { n: tally.length }) }]
+                          : []),
+                        ...modelOptions(persona, uniform ? models[0] : MIXED),
+                      ]}
+                      onChange={(v) => {
+                        if (v === MIXED) return;
+                        setPicked((cur) => ({
+                          ...cur,
+                          ...Object.fromEntries(idxs.map((i) => [i, v])),
+                        }));
                       }}
-                    >
-                      {!uniform && (
-                        <option value={MIXED} disabled>
-                          {t("team.mixed_models", { n: tally.length })}
-                        </option>
-                      )}
-                      {modelOptions(persona, uniform ? models[0] : MIXED)}
-                    </select>
+                    />
                   </span>
                   {warn && (
                     <span

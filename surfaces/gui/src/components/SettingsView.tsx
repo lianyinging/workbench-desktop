@@ -32,6 +32,7 @@ import {
   setCompactionSettings,
   setContextBar,
   setHideReasoningRunning,
+  setMaxIterations,
   setOnboarded,
   setPdfSettings,
   setScratchBase,
@@ -76,6 +77,7 @@ import { ConnectorGlance } from "./connectors/ConnectorGlance";
 import { ModelsTab } from "./ManageTabs";
 import { ConnectorsSection } from "./connectors/ConnectorsSection";
 import { MachineModelsPanel } from "./MachineModelsPanel";
+import { SelectMenu } from "./SelectMenu";
 import { MachinesSection } from "./MachinesSection";
 import { RemoteConnectorsPanel } from "./RemoteConnectorsPanel";
 import { MemorySection } from "./MemorySection";
@@ -164,16 +166,18 @@ function WorktreesCard() {
 
       <div className="mt-3 flex items-center gap-2">
         <label className="text-ui text-muted w-40 shrink-0">{t("settings.worktrees_where")}</label>
-        <select
-          className={INPUT}
-          data-testid="worktree-location"
+        <SelectMenu
+          testId="worktree-location"
+          className="flex-1 min-w-0"
+          ariaLabel={t("settings.worktrees_where")}
           value={draft.location}
-          onChange={(e) => set("location", e.target.value as typeof draft.location)}
-        >
-          <option value="in_repo">{t("settings.worktrees_in_repo")}</option>
-          <option value="sibling">{t("settings.worktrees_sibling")}</option>
-          <option value="custom">{t("settings.worktrees_custom")}</option>
-        </select>
+          options={[
+            { value: "in_repo", label: t("settings.worktrees_in_repo") },
+            { value: "sibling", label: t("settings.worktrees_sibling") },
+            { value: "custom", label: t("settings.worktrees_custom") },
+          ]}
+          onChange={(v) => set("location", v as typeof draft.location)}
+        />
       </div>
       {draft.location === "custom" && (
         <div className="mt-2 flex items-center gap-2">
@@ -424,33 +428,28 @@ export function SettingsView({
               {/* The ONE picker (UX-046): appears only when there is a choice
                   to make — extra machines on desktop, several on cloud. */}
               {g.scope === "machine" && machines.length > 0 && (
-                <select
-                  className="ml-auto max-w-[110px] truncate text-label px-1.5 py-0.5 rounded-md border border-line bg-paper text-ink outline-none"
+                <SelectMenu
+                  testId="machine-scope-picker"
+                  className="ml-auto max-w-[140px] min-w-[96px]"
+                  ariaLabel={t("settingsx.machine_scope_aria")}
                   value={scopeId}
-                  onChange={(e) => setScopeId(e.target.value)}
-                  data-testid="machine-scope-picker"
-                  aria-label={t("settingsx.machine_scope_aria")}
-                >
-                  {!isCloudMode() && <option value="">{t("settingsx.this_mac_option")}</option>}
-                  {machines
-                    .filter((m) => m.origin !== "cloud")
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>
-                        ⌂ {m.name}
-                      </option>
-                    ))}
-                  {machines.some((m) => m.origin === "cloud") && (
-                    <optgroup label={t("settingsx.openworker_cloud")}>
-                      {machines
-                        .filter((m) => m.origin === "cloud")
-                        .map((m) => (
-                          <option key={m.id} value={m.id}>
-                            ⌂ {m.name}
-                          </option>
-                        ))}
-                    </optgroup>
-                  )}
-                </select>
+                  options={[
+                    ...(!isCloudMode()
+                      ? [{ value: "", label: t("settingsx.this_mac_option") }]
+                      : []),
+                    ...machines
+                      .filter((m) => m.origin !== "cloud")
+                      .map((m) => ({ value: m.id, label: `⌂ ${m.name}` })),
+                    ...machines
+                      .filter((m) => m.origin === "cloud")
+                      .map((m) => ({
+                        value: m.id,
+                        label: `⌂ ${m.name}`,
+                        group: t("settingsx.openworker_cloud"),
+                      })),
+                  ]}
+                  onChange={setScopeId}
+                />
               )}
             </div>
             {g.tabs.map((tb) => {
@@ -510,6 +509,7 @@ export function SettingsView({
               />
               <TokenSavingsCard machine={scoped} />
               <CompactionCard machine={scoped} />
+              <MaxIterationsCard machine={scoped} />
             </section>
           ) : tab === "skills" ? (
             <SkillsTab
@@ -1029,7 +1029,7 @@ function AppearanceSection() {
   };
   const saveAdminUrl = () => {
     setAdminBaseUrl(adminUrl);
-    setAdminMsg("Saved — presence will use the new address");
+    setAdminMsg(t("settings.admin_saved"));
   };
 
   return (
@@ -1066,9 +1066,9 @@ function AppearanceSection() {
 
       {desktop && (
         <div className={CARD + " p-4 mb-4"} data-testid="admin-presence-card">
-          <div className={FIELD_LABEL}>Admin backend</div>
+          <div className={FIELD_LABEL}>{t("settings.admin_title")}</div>
           <div className={FIELD_HELP}>
-            Base URL for online presence (register / heartbeat). Device ID: {deviceId}
+            {t("settings.admin_help", { deviceId })}
           </div>
           <div className="mt-3 flex items-center gap-2">
             <input
@@ -1084,7 +1084,7 @@ function AppearanceSection() {
               data-testid="admin-base-url"
             />
             <button className={BTN_ACCENT} onClick={saveAdminUrl} data-testid="admin-base-url-save">
-              Save
+              {t("settings.files_save")}
             </button>
           </div>
           {adminMsg && <div className="text-ui text-muted mt-2">{adminMsg}</div>}
@@ -1369,6 +1369,93 @@ function TokenSavingsCard({ machine }: { machine?: Machine | null }) {
   );
 }
 
+// -- Per-turn step limit --------------------------------------------------------
+// Caps how many model↔tool rounds a single user turn may run before the engine
+// stops with "max iterations reached". Lives next to compaction because both are
+// "how far can one turn go" controls under Context optimization.
+function MaxIterationsCard({ machine }: { machine?: Machine | null }) {
+  const { t } = useTranslation();
+  const mid = machine?.id ?? null;
+  const [saved, setSaved] = useState<number | null>(null);
+  const [draft, setDraft] = useState<string>("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getSettings(mid)
+      .then((s) => {
+        const n = typeof s.max_iterations === "number" ? s.max_iterations : 150;
+        setSaved(n);
+        setDraft(String(n));
+      })
+      .catch(() => {
+        setSaved(150);
+        setDraft("150");
+      });
+  }, [mid]);
+
+  const save = async () => {
+    const next = Math.max(1, Math.min(Number(draft) || 150, 1000));
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await setMaxIterations(next, mid);
+      if (res.ok === false) {
+        setMsg(
+          res.error === "sidecar_restart_required"
+            ? t("settingsx.max_iterations.restart_required")
+            : res.error || t("settings.files_save_error"),
+        );
+        return;
+      }
+      const applied = typeof res.max_iterations === "number" ? res.max_iterations : next;
+      setSaved(applied);
+      setDraft(String(applied));
+      setMsg(t("settingsx.max_iterations.saved"));
+    } catch {
+      setMsg(t("settings.files_save_error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (saved === null) return null;
+  const dirty = Number(draft) !== saved;
+  return (
+    <div className={CARD + " p-4 mb-4"} data-testid="max-iterations-card">
+      <div className={FIELD_LABEL}>{t("settingsx.max_iterations.title")}</div>
+      <div className={FIELD_HELP}>{t("settingsx.max_iterations.help")}</div>
+      <div className="mt-3 flex items-center gap-2.5 flex-wrap">
+        <span className="text-ui text-ink">{t("settingsx.max_iterations.label")}</span>
+        <input
+          type="number"
+          min={1}
+          max={1000}
+          step={10}
+          value={draft}
+          data-testid="max-iterations-input"
+          className="w-24 px-2 py-1.5 rounded-lg border border-line bg-paper text-ui text-ink outline-none focus:border-accent"
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setMsg(null);
+          }}
+        />
+        <span className="text-ui text-muted">{t("settingsx.max_iterations.unit")}</span>
+        <button
+          className={BTN_ACCENT}
+          disabled={busy || !dirty}
+          onClick={() => void save()}
+          data-testid="max-iterations-save"
+        >
+          {t("settings.files_save")}
+        </button>
+      </div>
+      <div className={FIELD_HELP}>{t("settingsx.max_iterations.hint")}</div>
+      {msg && <div className="text-ui text-muted mt-2">{msg}</div>}
+    </div>
+  );
+}
+
 // -- Context compaction (OPE-27) ------------------------------------------------
 // Long sessions are summarized automatically when they approach the model's context
 // limit, so work continues instead of hitting a raw provider error. Two spec'd
@@ -1460,20 +1547,18 @@ function CompactionCard({ machine }: { machine?: Machine | null }) {
       </div>
 
       <div className="mt-3 flex items-center gap-2.5">
-        <span className="text-ui text-ink">{t("settingsx.compaction.summarizer_model")}</span>
-        <select
+        <span className="text-ui text-ink shrink-0">{t("settingsx.compaction.summarizer_model")}</span>
+        <SelectMenu
+          testId="compaction-model"
+          className="min-w-[220px] max-w-[360px] flex-1"
+          ariaLabel={t("settingsx.compaction.summarizer_model")}
           value={cfg.compaction_model}
-          data-testid="compaction-model"
-          className="px-2 py-1.5 rounded-lg border border-line bg-paper text-ui text-ink outline-none focus:border-accent"
-          onChange={(e) => save({ compaction_model: e.target.value })}
-        >
-          <option value="">{t("settingsx.compaction.own_model_default")}</option>
-          {models.map((m) => (
-            <option key={m} value={m}>
-              {modelLabel(m)}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: t("settingsx.compaction.own_model_default") },
+            ...models.map((m) => ({ value: m, label: modelLabel(m) })),
+          ]}
+          onChange={(v) => save({ compaction_model: v })}
+        />
       </div>
       <div className={FIELD_HELP}>
         {t("settingsx.compaction.summarizer_help")}
@@ -1656,19 +1741,18 @@ function AutoApproveCard() {
       {(on || shadow) && (
       <div className="py-2" data-testid="auto-approve-reviewer">
         <div className="flex items-center gap-2.5">
-          <span className="text-ui text-ink">{t("settingsx.auto_approve.reviewer_title")}</span>
-          <select
+          <span className="text-ui text-ink shrink-0">{t("settingsx.auto_approve.reviewer_title")}</span>
+          <SelectMenu
+            testId="auto-approve-reviewer-select"
+            className="min-w-[200px] max-w-[320px] flex-1"
+            ariaLabel={t("settingsx.auto_approve.reviewer_title")}
             value={reviewer}
-            data-testid="auto-approve-reviewer-select"
-            className="px-2 py-1.5 rounded-lg border border-line bg-paper text-ui text-ink outline-none focus:border-accent"
-            onChange={(e) => saveReviewer(e.target.value as ReviewerChoice)}
-          >
-            {choices.map((c) => (
-              <option key={c} value={c}>
-                {t(`settingsx.auto_approve.reviewer_${choiceKey(c)}`)}
-              </option>
-            ))}
-          </select>
+            options={choices.map((c) => ({
+              value: c,
+              label: t(`settingsx.auto_approve.reviewer_${choiceKey(c)}`),
+            }))}
+            onChange={(v) => saveReviewer(v as ReviewerChoice)}
+          />
         </div>
         <div className={FIELD_HELP}>{t(`settingsx.auto_approve.reviewer_${choiceKey(reviewer)}_desc`)}</div>
         {reviewer !== "session" && (

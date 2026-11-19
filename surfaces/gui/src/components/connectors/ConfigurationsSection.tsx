@@ -20,6 +20,7 @@ import {
 import type { SessionInfo } from "../../types";
 import { canonicalModels, sameModel } from "../../modelNames";
 type SessionRow = SessionInfo;
+import { SelectMenu } from "../SelectMenu";
 import { FOOT, GRP, GRP_H, PILL_ACCENT, PILL_LINE, ROW, XBTN } from "./ui";
 
 // UX-050 (owner, 2026-09-04): the GitHub glance page IS its configurations.
@@ -383,13 +384,13 @@ function ConfigurationDialog({
 
               <Label>{t("connconfig.label_event")}</Label>
               <div>
-                <select className={INPUT} value={event} onChange={(e) => setEvent(e.target.value)} data-testid="cfg-event">
-                  {EVENTS.map((e) => (
-                    <option key={e.value} value={e.value}>
-                      {t(e.label)}
-                    </option>
-                  ))}
-                </select>
+                <SelectMenu
+                  testId="cfg-event"
+                  ariaLabel={t("connconfig.label_event")}
+                  value={event}
+                  options={EVENTS.map((e) => ({ value: e.value, label: t(e.label) }))}
+                  onChange={setEvent}
+                />
                 {eventHint ? <div className="text-meta text-faint mt-1">{t(eventHint)}</div> : null}
               </div>
               {event === "named_mention" && (
@@ -437,25 +438,27 @@ function ConfigurationDialog({
           </div>
 
           <Label>{t("connconfig.label_machine")}</Label>
-          <select className={INPUT} value={machineId} onChange={(e) => setMachineId(e.target.value)} data-testid="cfg-machine">
-            {holders.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.glyph} {h.name}
-              </option>
-            ))}
-          </select>
+          <SelectMenu
+            testId="cfg-machine"
+            ariaLabel={t("connconfig.label_machine")}
+            value={machineId}
+            options={holders.map((h) => ({ value: h.id, label: `${h.glyph} ${h.name}` }))}
+            onChange={setMachineId}
+          />
 
           {kind === "new" ? (
             <>
               <Label>{t("connconfig.label_coworker")}</Label>
-              <select className={INPUT} value={persona} onChange={(e) => setPersona(e.target.value)} data-testid="cfg-coworker">
-                <option value="">{t("connconfig.default_coworker")}</option>
-                {personas.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <SelectMenu
+                testId="cfg-coworker"
+                ariaLabel={t("connconfig.label_coworker")}
+                value={persona}
+                options={[
+                  { value: "", label: t("connconfig.default_coworker") },
+                  ...personas.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+                onChange={setPersona}
+              />
 
               <Label>{t("connconfig.label_models")}</Label>
               <div>
@@ -491,13 +494,13 @@ function ConfigurationDialog({
 
               <Label>{t("connconfig.label_approvals")}</Label>
               <div>
-                <select className={INPUT} value={approvalMode} onChange={(e) => setApprovalMode(e.target.value)} data-testid="cfg-approval-mode">
-                  {APPROVAL_MODES.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {t(m.label)}
-                    </option>
-                  ))}
-                </select>
+                <SelectMenu
+                  testId="cfg-approval-mode"
+                  ariaLabel={t("connconfig.label_approvals")}
+                  value={approvalMode}
+                  options={APPROVAL_MODES.map((m) => ({ value: m.value, label: t(m.label) }))}
+                  onChange={setApprovalMode}
+                />
                 <span className="block text-meta text-faint mt-1">
                   {modeHint ? t(modeHint) : null}
                   {approvalMode === "bypass-approvals" && (personaRow?.tools ?? []).includes("shell") ? " " + t("connconfig.shell_warning") : ""}

@@ -35,6 +35,7 @@ import { sealTo } from "../seal";
 import { ConnectorBadge } from "../connectors/ConnectorIcon";
 import { useMachineData } from "../useMachineData";
 import { CachedNote, LoadingRow, UnreachableRow } from "./ScopedStatus";
+import { SelectMenu } from "./SelectMenu";
 import { FOOT, GRP, GRP_H, PILL_ACCENT, PILL_LINE, TAG_QUIET } from "./connectors/ui";
 
 // Settings ▸ Connectors under a MACHINE scope (union view): that machine's
@@ -335,26 +336,32 @@ export function ApprovalsRouting({ machine }: { machine?: Machine | null }) {
     load();
   };
   return (
-    <span className="flex items-center gap-1.5 text-meta text-muted" title={t("machines.connectors.approvals_title")}>
+    <span
+      className="flex items-center gap-1.5 text-meta text-muted"
+      title={t("machines.connectors.approvals_title")}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       {t("machines.connectors.approvals_arrow")}
-      <select
-        className="text-meta px-1.5 py-0.5 rounded-md border border-line bg-paper text-ink outline-none max-w-[140px]"
+      <SelectMenu
+        className="max-w-[140px] min-w-[96px]"
+        testId="remote-approvals-slack"
+        ariaLabel={t("machines.connectors.approvals_title")}
         value={target}
-        onChange={(e) => void change(e.target.value)}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-        data-testid="remote-approvals-slack"
-      >
-        <option value="">{t("machines.connectors.in_app")}</option>
-        {channels
-          .filter((ch) => ch.channel.startsWith("slack:"))
-          .map((ch) => (
-            <option key={ch.channel} value={ch.channel}>
-              {ch.name ? `#${ch.name}` : ch.channel}
-            </option>
-          ))}
-        {target && !channels.some((ch) => ch.channel === target) && <option value={target}>{target}</option>}
-      </select>
+        options={[
+          { value: "", label: t("machines.connectors.in_app") },
+          ...channels
+            .filter((ch) => ch.channel.startsWith("slack:"))
+            .map((ch) => ({
+              value: ch.channel,
+              label: ch.name ? `#${ch.name}` : ch.channel,
+            })),
+          ...(target && !channels.some((ch) => ch.channel === target)
+            ? [{ value: target, label: target }]
+            : []),
+        ]}
+        onChange={(v) => void change(v)}
+      />
     </span>
   );
 }

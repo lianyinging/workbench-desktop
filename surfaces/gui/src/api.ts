@@ -1255,6 +1255,8 @@ export interface ModelSettings {
   compaction_threshold_pct?: number; // default 0.8, 0.10–0.95
   compaction_cap_tokens?: number; // default 250000
   compaction_model?: string;
+  // Per-turn model↔tool loop ceiling (default 150, 1–1000). Optional for older backends.
+  max_iterations?: number;
 }
 
 export interface PdfSettings {
@@ -1293,6 +1295,38 @@ export async function setCompactionSettings(
     body: JSON.stringify(patch),
   });
   return res.json();
+}
+
+/** Persist the per-turn model↔tool iteration ceiling. */
+export async function setMaxIterations(
+  maxIterations: number,
+  machineId?: string | null,
+): Promise<{ ok: boolean; max_iterations?: number; error?: string }> {
+  const res = await fetch(`${engineBase(machineId)}/v1/settings/max-iterations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ max_iterations: maxIterations }),
+  });
+  let body: { ok?: boolean; max_iterations?: number; error?: string; detail?: unknown } = {};
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: `HTTP ${res.status}` };
+  }
+  // Older sidecars return 404 `{detail: "Not Found"}` without `ok: false` — treat that
+  // as failure so the UI doesn't pretend the value was persisted.
+  if (!res.ok || body.ok !== true || typeof body.max_iterations !== "number") {
+    // 404 = this desktop's Python sidecar was started before the route existed.
+    if (res.status === 404) {
+      return { ok: false, error: "sidecar_restart_required" };
+    }
+    const detail =
+      typeof body.detail === "string"
+        ? body.detail
+        : body.error || `HTTP ${res.status}`;
+    return { ok: false, error: detail };
+  }
+  return { ok: true, max_iterations: body.max_iterations };
 }
 
 /** Local page/size probe for a PDF data URL — the composer's attach-time threshold check. */

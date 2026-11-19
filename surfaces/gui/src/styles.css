@@ -1408,11 +1408,7 @@ html[data-theme="dark"] .aglyph-f7 { color: #9aa5b3; }
   padding: 7px 10px; color: var(--ink); font: inherit; font-size: var(--fs-ui); outline: none;
 }
 .mlist-add input:focus { border-color: var(--accent); }
-.mlist-add select {
-  background: var(--panel); border: 1px solid var(--line-strong); border-radius: 8px;
-  padding: 7px 8px; color: var(--ink); font: inherit; font-size: var(--fs-ui); outline: none;
-}
-.mlist-add select:focus { border-color: var(--accent); }
+.mlist-add .mlist-family { min-width: 9.5rem; flex: 0 0 auto; }
 
 /* .mcp-error is used by ScheduledView; the MCP servers list itself is Tailwind-styled inline
    (ManageTabs McpTab/McpRow/AddForm). */
@@ -2423,19 +2419,14 @@ html[data-platform="linux"] ::-webkit-scrollbar-thumb:hover { background-color: 
 .teamreq-model { color: var(--muted); }
 /* The per-worker model picker: reads as text on line one — no box, no extra row height. */
 .teamreq-model-pick { position: relative; display: inline-block; vertical-align: baseline; max-width: 100%; }
-.teamreq-model-pick::after {
-  content: "▾"; position: absolute; right: 1px; top: 50%; transform: translateY(-50%);
-  color: var(--muted); font-size: var(--fs-meta); line-height: 1; pointer-events: none;
-}
-.teamreq-model-select {
-  appearance: none; -webkit-appearance: none; border: none; border-radius: 4px; background: transparent;
-  margin: 0; padding: 0 14px 0 2px; height: auto; max-width: 17em;
+.teamreq-model-select { display: inline-block; max-width: 17em; min-width: 8em; vertical-align: baseline; }
+.teamreq-model-select > button {
+  border: none; border-radius: 4px; background: transparent;
+  margin: 0; padding: 0 2px; height: auto; width: auto; min-width: 0;
   font: inherit; font-size: var(--fs-ui); line-height: inherit; color: var(--ink-2);
-  text-overflow: ellipsis; cursor: pointer;
-  field-sizing: content; /* hug the chosen label where supported; else the widest option */
 }
-.teamreq-model-select:hover { background: var(--paper); color: var(--ink); }
-.teamreq-model-select:focus-visible { outline: 2px solid var(--accent-soft); }
+.teamreq-model-select > button:hover { background: var(--paper); color: var(--ink); border-color: transparent; }
+.teamreq-model-select > button:focus-visible { outline: 2px solid var(--accent-soft); }
 .teamreq-model-warn { display: inline-flex; vertical-align: -2px; margin-left: 5px; color: var(--warn-ink); cursor: help; }
 .teamreq-model-note { display: block; font-size: var(--fs-label); color: var(--faint); }
 .teamreq-reason { display: block; font-size: var(--fs-meta); color: var(--muted); }

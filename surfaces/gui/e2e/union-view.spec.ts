@@ -123,7 +123,8 @@ test("Settings picker offers cloud machines; scoped pages ride the cloud proxy",
   await page.goto("/#/settings/skills");
 
   const picker = page.getByTestId("machine-scope-picker");
-  await picker.selectOption("cloud:c1");
+  await picker.click();
+  await page.locator(`[role="option"][data-value="cloud:c1"]`).click();
   await expect(page.getByText("cloud-only-skill")).toBeVisible();
   await expect(page).toHaveURL(/#\/settings\/skills\?m=cloud:c1$/);
 });

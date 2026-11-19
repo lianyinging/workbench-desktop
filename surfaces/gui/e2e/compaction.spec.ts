@@ -19,7 +19,7 @@ test("Settings: Context compaction card edits threshold, cap, and summarizer mod
   // Defaults render when the backend doesn't send the fields (older-backend robustness).
   await expect(card.getByTestId("compaction-threshold")).toHaveValue("80");
   await expect(card.getByTestId("compaction-cap")).toHaveValue("250000");
-  await expect(card.getByTestId("compaction-model")).toHaveValue("");
+  await expect(card.getByTestId("compaction-model")).toHaveAttribute("data-value", "");
 
   // Threshold edits POST as a fraction, clamped to 10–95%.
   const [req] = await Promise.all([
@@ -38,12 +38,13 @@ test("Settings: Context compaction card edits threshold, cap, and summarizer mod
   ]);
   expect(req2.postDataJSON()).toEqual({ compaction_cap_tokens: 100000 });
 
-  // Summarizer pin: the picker offers the session-default plus the configured models.
+  // Summarizer pin: custom SelectMenu (not native <select>) — open, then pick a model.
+  await card.getByTestId("compaction-model").click();
   const [req3] = await Promise.all([
     page.waitForRequest(
       (r) => r.url().endsWith("/v1/settings/compaction") && r.method() === "POST",
     ),
-    card.getByTestId("compaction-model").selectOption("gpt-4o-mini"),
+    page.getByRole("option", { name: "gpt-4o-mini" }).click(),
   ]);
   expect(req3.postDataJSON()).toEqual({ compaction_model: "gpt-4o-mini" });
 });

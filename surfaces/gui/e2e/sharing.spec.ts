@@ -13,7 +13,7 @@ test("picker's Import door lands on Settings ▸ Coworkers at the Add section", 
   // Settings ▸ Coworkers opened, with the installer disclosure auto-opened (UX-035:
   // it's collapsed by default; the Import door pops it).
   await expect(page.getByTestId("install-disclosure")).toBeVisible();
-  await expect(page.getByRole("combobox")).toBeVisible();
+  await expect(page.getByTestId("persona-install-source")).toBeVisible();
 });
 
 test("zip import: trust warning leads, tools collapse behind a chevron, replaces-note shows", async ({
@@ -27,7 +27,8 @@ test("zip import: trust warning leads, tools collapse behind a chevron, replaces
   // Open the installer disclosure, pick the Bundle zip mode, feed a file through
   // the hidden input.
   await page.getByTestId("install-disclosure").click();
-  await page.getByRole("combobox").selectOption("zip");
+  await page.getByTestId("persona-install-source").click();
+  await page.locator(`[role="option"][data-value="zip"]`).click();
   await page.getByTestId("persona-zip-input").setInputFiles({
     name: "team-sec.zip",
     mimeType: "application/zip",

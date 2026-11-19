@@ -164,27 +164,32 @@ describe("TeamRequestCard", () => {
     expect("model" in onRespond.mock.calls[0][3][0]).toBe(false);
   });
 
+  const pickModel = (testId: string, value: string) => {
+    fireEvent.click(screen.getByTestId(testId));
+    fireEvent.click(document.querySelector(`[role="option"][data-value="${value}"]`)!);
+  };
+
   it("offers recommended then other models, defaults to resolved_model, and sends a model per worker", () => {
     const onRespond = vi.fn();
     render(<TeamRequestCard item={withModels} onRespond={onRespond} />);
-    const nia = screen.getByTestId("teamreq-model-0") as HTMLSelectElement;
-    expect(nia.value).toBe("anthropic:claude-opus-4-8");
-    const groups = [...nia.querySelectorAll("optgroup")];
-    expect(groups.map((g) => g.getAttribute("label"))).toEqual([
-      "Recommended for this worker",
-      "Other models on this machine",
-    ]);
-    expect([...groups[0].querySelectorAll("option")].map((o) => o.textContent)).toEqual([
-      "Claude Opus 4.8",
-      "Claude Sonnet 4.8",
-    ]);
-    expect([...groups[1].querySelectorAll("option")].map((o) => o.textContent)).toEqual(["Qwen 3 (local)"]);
+    const nia = screen.getByTestId("teamreq-model-0");
+    expect(nia.getAttribute("data-value")).toBe("anthropic:claude-opus-4-8");
+    fireEvent.click(nia);
+    const listbox = screen.getByRole("listbox");
+    expect(listbox.textContent).toContain("Recommended for this worker");
+    expect(listbox.textContent).toContain("Other models on this machine");
+    expect(
+      [...listbox.querySelectorAll('[role="option"]')].map((o) => o.getAttribute("data-value")),
+    ).toEqual(["anthropic:claude-opus-4-8", "anthropic:claude-sonnet-4-8", "ollama:qwen3"]);
+    fireEvent.click(document.querySelector(".fixed.inset-0")!); // close
     // an empty recommended list drops that group; the fallback is still selected
-    const checks = screen.getByTestId("teamreq-model-1") as HTMLSelectElement;
-    expect(checks.value).toBe("anthropic:claude-sonnet-4-8");
-    expect([...checks.querySelectorAll("optgroup")].map((g) => g.getAttribute("label"))).toEqual([
-      "Other models on this machine",
-    ]);
+    const checks = screen.getByTestId("teamreq-model-1");
+    expect(checks.getAttribute("data-value")).toBe("anthropic:claude-sonnet-4-8");
+    fireEvent.click(checks);
+    const checksBox = screen.getByRole("listbox");
+    expect(checksBox.textContent).toContain("Other models on this machine");
+    expect(checksBox.textContent).not.toContain("Recommended for this worker");
+    fireEvent.click(document.querySelector(".fixed.inset-0")!);
     expect(screen.queryByTestId("teamreq-model-note-0")).toBeNull();
     fireEvent.click(screen.getByTestId("teamreq-approve"));
     expect(onRespond.mock.calls[0][3]).toEqual([
@@ -200,12 +205,16 @@ describe("TeamRequestCard", () => {
         onRespond={vi.fn()}
       />,
     );
-    const sel = screen.getByTestId("teamreq-model-0") as HTMLSelectElement;
-    expect(sel.value).toBe("openai:gpt-5.6-sol");
+    const sel = screen.getByTestId("teamreq-model-0");
+    expect(sel.getAttribute("data-value")).toBe("openai:gpt-5.6-sol");
     // The name only (no provider prefix); the exact id is the select's hover text.
-    expect(sel.options[0].textContent).toBe("gpt-5.6-sol");
+    expect(sel.textContent).toContain("gpt-5.6-sol");
     expect(sel.getAttribute("title")).toBe("openai:gpt-5.6-sol");
-    expect(sel.options[0].parentElement).toBe(sel);
+    fireEvent.click(sel);
+    const orphan = document.querySelector('[role="option"][data-value="openai:gpt-5.6-sol"]')!;
+    expect(orphan.textContent).toContain("gpt-5.6-sol");
+    // Orphan id is listed without a group header above it.
+    expect(orphan.previousElementSibling).toBeNull();
   });
 
   it("warns on a fallback model until the human picks another, which then rides the approval", () => {
@@ -218,12 +227,12 @@ describe("TeamRequestCard", () => {
     expect(glyph.getAttribute("aria-label")).toBe(glyph.getAttribute("title"));
     // no recommended list → the warning covers it, no note
     expect(screen.queryByTestId("teamreq-model-note-1")).toBeNull();
-    fireEvent.change(screen.getByTestId("teamreq-model-1"), { target: { value: "ollama:qwen3" } });
+    pickModel("teamreq-model-1", "ollama:qwen3");
     expect(screen.queryByTestId("teamreq-model-warn-1")).toBeNull();
     // back on the fallback → the warning returns
-    fireEvent.change(screen.getByTestId("teamreq-model-1"), { target: { value: "anthropic:claude-sonnet-4-8" } });
+    pickModel("teamreq-model-1", "anthropic:claude-sonnet-4-8");
     expect(screen.getByTestId("teamreq-model-warn-1")).toBeTruthy();
-    fireEvent.change(screen.getByTestId("teamreq-model-1"), { target: { value: "ollama:qwen3" } });
+    pickModel("teamreq-model-1", "ollama:qwen3");
     fireEvent.click(screen.getByTestId("teamreq-approve"));
     expect(onRespond.mock.calls[0][3][1]).toEqual({
       persona: "test-worker",
@@ -236,11 +245,11 @@ describe("TeamRequestCard", () => {
   it("notes a pick outside the worker's recommended models", () => {
     render(<TeamRequestCard item={withModels} onRespond={vi.fn()} />);
     expect(screen.queryByTestId("teamreq-model-note-0")).toBeNull();
-    fireEvent.change(screen.getByTestId("teamreq-model-0"), { target: { value: "ollama:qwen3" } });
+    pickModel("teamreq-model-0", "ollama:qwen3");
     const note = screen.getByTestId("teamreq-model-note-0");
     expect(note.textContent).toBe("Not one of this worker's recommended models.");
     expect(screen.getByTestId("teamreq-row-0").querySelector(".teamreq-who")?.contains(note)).toBe(false);
-    fireEvent.change(screen.getByTestId("teamreq-model-0"), { target: { value: "anthropic:claude-sonnet-4-8" } });
+    pickModel("teamreq-model-0", "anthropic:claude-sonnet-4-8");
     expect(screen.queryByTestId("teamreq-model-note-0")).toBeNull();
   });
 

@@ -2866,6 +2866,11 @@ def create_app(manager: SessionManager) -> FastAPI:
             model=b.get("compaction_model"),
         )
 
+    @app.post("/v1/settings/max-iterations")
+    def settings_set_max_iterations(body: dict) -> dict[str, Any]:
+        # Per-turn model↔tool loop ceiling (Settings → Context optimization).
+        return manager.set_max_iterations((body or {}).get("max_iterations"))
+
     @app.post("/v1/attachments/inspect-pdf")
     def attachments_inspect_pdf(body: dict) -> dict[str, Any]:
         # Attach-time page/size probe for the composer's threshold check. Local only.

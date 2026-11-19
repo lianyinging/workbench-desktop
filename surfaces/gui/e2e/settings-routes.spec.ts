@@ -36,7 +36,7 @@ test("?m= deep-links a machine scope; the picker adopts it and the URL keeps it"
   await seedMachines(page, [HETZNER]);
   await page.goto("/#/settings/models?m=m1");
   await expect(page.getByTestId("machine-models-panel")).toBeVisible();
-  await expect(page.getByTestId("machine-scope-picker")).toHaveValue("m1");
+  await expect(page.getByTestId("machine-scope-picker")).toHaveAttribute("data-value", "m1");
   await expect(page).toHaveURL(/#\/settings\/models\?m=m1$/);
 
   // App-scope pages carry no machine scope — the param drops off.

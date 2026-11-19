@@ -37,6 +37,7 @@ import { consumeApprovalCode, peekApprovalCode } from "../routes";
 import { keyPushAllowed } from "../cloudAuth";
 import { Icon } from "./Icon";
 import { PanelHead } from "./IntegrationsView";
+import { SelectMenu } from "./SelectMenu";
 
 // Settings ▸ Machines (UX-045 frame C/D). Rows model the connectors/accounts
 // idiom: calm at rest, actions on hover. Opening "Add a machine" is what ARMS
@@ -973,19 +974,17 @@ function MachineKeysCard({ machine, onClose }: { machine: Machine; onClose: () =
           )}
 
           <div className="mt-3.5 flex items-center gap-2.5">
-            <select
-              className="px-2 py-2 rounded-lg border border-line bg-paper text-meta text-ink outline-none"
+            <SelectMenu
+              className="min-w-[140px]"
+              testId="keys-provider"
+              ariaLabel={t("machines.keys.custom_profile")}
               value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              data-testid="keys-provider"
-            >
-              {KEY_PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-              <option value="custom">{t("machines.keys.custom_profile")}</option>
-            </select>
+              options={[
+                ...KEY_PROVIDERS.map((p) => ({ value: p.id, label: p.label })),
+                { value: "custom", label: t("machines.keys.custom_profile") },
+              ]}
+              onChange={setProvider}
+            />
             {provider === "custom" && (
               <input
                 className="px-2.5 py-2 rounded-lg border border-line bg-paper font-mono text-meta text-ink outline-none w-40"

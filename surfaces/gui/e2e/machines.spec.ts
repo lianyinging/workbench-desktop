@@ -468,14 +468,15 @@ test("settings shell (UX-046): scoped rail, machine picker, machine-scoped Model
   // Grouped rail with the picker on the MACHINE header, defaulting to This Mac.
   await expect(page.getByText("Inventory", { exact: true })).toBeVisible();
   const picker = page.getByTestId("machine-scope-picker");
-  await expect(picker).toHaveValue("");
+  await expect(picker).toHaveAttribute("data-value", "");
 
   // Models & Keys on This Mac = the local providers page.
   await page.getByRole("button", { name: "Models & Keys" }).click();
   await expect(page.getByText("Keys are stored only on this computer")).toBeVisible();
 
   // Pick the machine: the panel flips to the machine's own report + ledger.
-  await picker.selectOption("m1");
+  await picker.click();
+  await page.locator(`[role="option"][data-value="m1"]`).click();
   await expect(page.getByTestId("machine-models-panel")).toBeVisible();
   await expect(page.getByTestId("active-ollama")).toContainText("qwen3-coder:30b");
   await expect(page.getByTestId("active-anthropic")).toContainText("claude-sonnet-4-6");
@@ -610,7 +611,7 @@ test("cloud mode: New sandbox creates, the row walks provisioning → joining �
   await expect(page.getByTestId("sandbox-tag-sandbox-1")).toBeVisible();
   await expect(page.getByTestId("sandbox-phase-sandbox-1")).toHaveCount(0);
   // The Settings rail's machine picker learns about it without a reload.
-  await expect(page.getByRole("combobox")).toContainText("sandbox-1", { timeout: 10000 });
+  await expect(page.getByTestId("machine-scope-picker")).toContainText("sandbox-1", { timeout: 10000 });
 });
 
 test("a keyless machine shows no active model — its default is not reported as working", async ({
@@ -631,7 +632,8 @@ test("a keyless machine shows no active model — its default is not reported as
     }),
   );
   await openMachines(page);
-  await page.getByTestId("machine-scope-picker").selectOption("m1");
+  await page.getByTestId("machine-scope-picker").click();
+  await page.locator(`[role="option"][data-value="m1"]`).click();
   await page.getByRole("button", { name: "Models & Keys" }).click();
   await expect(page.getByTestId("machine-models-panel")).toBeVisible();
   await expect(page.getByText("No working models yet — send a key below.")).toBeVisible();
@@ -683,7 +685,8 @@ test("cloud mode: Connect in browser on a machine's connector seals the broker's
   await page.getByTestId("account-row").click();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Connectors", exact: true }).click();
-  await page.getByTestId("machine-scope-picker").selectOption("m1");
+  await page.getByTestId("machine-scope-picker").click();
+  await page.locator(`[role="option"][data-value="m1"]`).click();
   const button = page.getByTestId("remote-connect-browser-notion");
   await expect(button).toBeVisible();
   await button.click();

@@ -18,11 +18,19 @@ export function SelectMenu({
   options,
   onChange,
   ariaLabel,
+  testId,
+  className,
+  title,
 }: {
   value: string;
   options: SelectMenuOption[];
   onChange: (value: string) => void;
   ariaLabel: string;
+  testId?: string;
+  /** Extra classes on the outer wrapper (e.g. min-width in an inline row). */
+  className?: string;
+  /** Hover / native tooltip on the trigger button. */
+  title?: string;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -35,13 +43,16 @@ export function SelectMenu({
   const current = options.find((o) => o.value === value);
 
   return (
-    <div className="relative">
+    <div className={"relative " + (className || "")}>
       <button
         type="button"
         className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-line bg-paper text-ui text-ink hover:border-lineStrong"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
+        title={title}
+        data-testid={testId}
+        data-value={value}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="flex-1 min-w-0 text-left truncate">{current?.label || value}</span>
@@ -76,6 +87,7 @@ export function SelectMenu({
                   <button
                     type="button"
                     role="option"
+                    data-value={o.value}
                   aria-selected={sel}
                   className={
                     "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left " +
